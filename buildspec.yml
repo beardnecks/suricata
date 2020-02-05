@@ -60,7 +60,6 @@ phases:
               --enable-profiling \
               --enable-profiling-locks
   build:
-    run-as: Linux-user-name
     commands:
       - make -j8
       - make -j8 check
