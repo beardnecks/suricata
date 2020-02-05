@@ -61,5 +61,5 @@ phases:
               --enable-profiling-locks
   build:
     commands:
-      - make -j8
-      - make -j8 check
+      - make -j4
+      - make -j4 check
