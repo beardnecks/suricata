@@ -2,10 +2,11 @@ version: 0.2
 
 phases:
   install:
-    commands: |
-      yum -y install dnf-plugins-core
-      yum config-manager --set-enabled PowerTools
-      yum -y install \
+    commands:
+      - |
+        yum -y install dnf-plugins-core
+        yum config-manager --set-enabled PowerTools
+        yum -y install \
                 autoconf \
                 automake \
                 cargo-vendor \
