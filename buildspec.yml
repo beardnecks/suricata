@@ -41,7 +41,7 @@ phases:
                 which \
                 zlib-devel
       - cargo install --force cbindgen
-      - export PATH="$PATH:HOME/.cargo/bin"
+      - export PATH="$PATH:$HOME/.cargo/bin"
   pre_build:
     commands:
       - git clone https://github.com/OISF/libhtp -b 0.5.x
