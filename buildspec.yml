@@ -3,45 +3,9 @@ version: 0.2
 phases:
   install:
     commands:
-      - |
-        yum -y install dnf-plugins-core
-        yum config-manager --set-enabled PowerTools
-        yum -y install \
-                autoconf \
-                automake \
-                cargo-vendor \
-                diffutils \
-                file-devel \
-                gcc \
-                gcc-c++ \
-                git \
-                jansson-devel \
-                jq \
-                lua-devel \
-                libtool \
-                libyaml-devel \
-                libnfnetlink-devel \
-                libnetfilter_queue-devel \
-                libnet-devel \
-                libcap-ng-devel \
-                libevent-devel \
-                libmaxminddb-devel \
-                libpcap-devel \
-                libtool \
-                lz4-devel \
-                make \
-                nss-devel \
-                pcre-devel \
-                pkgconfig \
-                python3-devel \
-                python3-sphinx \
-                python3-yaml \
-                rust-toolset \
-                sudo \
-                which \
-                zlib-devel
-      - cargo install --force cbindgen
-      - export PATH="$PATH:$HOME/.cargo/bin"
+      - yum install ruby ruby-devel ruby-libs ruby-irb gem rubygems auto-buildrequires
+      - gem install fpm
+      - yum install rpm-build       
   pre_build:
     commands:
       - git clone https://github.com/OISF/libhtp -b 0.5.x
@@ -57,3 +21,7 @@ phases:
   build:
     commands:
       - make -j4
+      - make install-full DESTDIR=/home/suricata-build/rpm/
+  package:
+    commands:
+      - fpm -s dir -t rpm -n suricata-RC -v 1.000A -C /home/suricata-build/rpm/ -p suricata-1.000A_64-1.rpm usr/
