@@ -3,7 +3,13 @@ version: 0.2
 phases:
   install:
     commands:
-      - yum install -y ruby ruby-devel ruby-libs ruby-irb gem rubygems
+      - yum update -y
+      - yum install -y 
+              ruby \
+              ruby-devel \
+              ruby-libs \
+              ruby-irb gem \
+              rubygems
       - gem install fpm
       - yum install -y rpm-build       
   pre_build:
