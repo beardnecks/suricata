@@ -2,7 +2,7 @@ version: 0.2
 
 phases:
   install:
-    commands: 
+    commands:
       - |
         yum -y install dnf-plugins-core
         yum config-manager --set-enabled PowerTools
@@ -53,7 +53,7 @@ phases:
       - cd ..
       - |
         ./autogen.sh
-        ./configure --disable-gccmarch-native --prefix=/usr --sysconfdir=/etc --localstatedir=/var 
+        ./configure --disable-gccmarch-native --prefix=/usr --sysconfdir=/etc --localstatedir=/var
   build:
     commands:
-      - make -j8
+      - make -j4
