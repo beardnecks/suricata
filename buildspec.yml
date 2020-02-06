@@ -3,9 +3,9 @@ version: 0.2
 phases:
   install:
     commands:
-      - yum install ruby ruby-devel ruby-libs ruby-irb gem rubygems auto-buildrequires
+      - yum install -y ruby ruby-devel ruby-libs ruby-irb gem rubygems auto-buildrequires
       - gem install fpm
-      - yum install rpm-build       
+      - yum install -y rpm-build       
   pre_build:
     commands:
       - git clone https://github.com/OISF/libhtp -b 0.5.x
