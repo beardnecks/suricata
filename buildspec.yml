@@ -34,8 +34,7 @@ phases:
       - ls -la
 artifacts:
   files:
-    - '**/*.rpm'
+    - 'suricata-1.000A_64-1.rpm'
   discart paths: yes
-  base-directory: 'home/suricata-build/'
   
 
