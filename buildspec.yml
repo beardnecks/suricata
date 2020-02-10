@@ -12,6 +12,8 @@ phases:
               tar zxvf - --strip-components=1
       - cd ..
       - echo Generating build files
+      - ls -la
+      - echo $PWD
       - |
         ./autogen.sh
         echo Configuring the make and make install
@@ -31,6 +33,6 @@ artifacts:
   files:
     - 'suricata-1.000A_64-1.rpm'
   discart paths: yes
-  base-directory: '$PWD'
+  base-directory: '/home/suricata-build/usr/'
   
 
