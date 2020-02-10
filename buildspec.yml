@@ -28,7 +28,8 @@ phases:
       - ls -la
 artifact:
   files:
-    - /home/suricata-build/suricata-1.000A_64-1.rpm
-  name: suricata
+    - '**/*.rpm'
   discart paths: yes
+  base-directory: 'home/suricata-build'
+  
 
