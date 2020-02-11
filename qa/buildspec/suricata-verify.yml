@@ -11,7 +11,8 @@ phases:
               tar zxvf - --strip-components=1
       - cd ..
       - ./autogen.sh
-      - ./configure --enable-unittests 
+      - ./configure --enable-unittests \
+                    --enable-lua
   build:
     commands:
       - make -j4
