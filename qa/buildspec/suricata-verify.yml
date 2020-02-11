@@ -19,4 +19,4 @@ phases:
   post_build:
     commands:
       - git clone https://github.com/OISF/suricata-verify.git
-      - ./suricata-verify/run.py
+      - python3 ./suricata-verify/run.py
