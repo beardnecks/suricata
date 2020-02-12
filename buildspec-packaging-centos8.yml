@@ -20,7 +20,7 @@ phases:
     commands:
       - echo Running install
       - make -j4
-      - make install-full DESTDIR=/home/suricata-build
+      - make DESTDIR=/home/suricata-build install-full 
   post_build:
     commands:
       - echo Packaging application
