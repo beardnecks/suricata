@@ -15,7 +15,7 @@ phases:
       - |
         ./autogen.sh
         echo Configuring the make and make install
-        ./configure --disable-gccmarch-native --prefix=/home/suricata-build/usr/ --sysconfdir=/home/suricata-build/etc --localstatedir=/home/suricata-build/var
+        ./configure --disable-gccmarch-native --enable-unittests --prefix=/home/suricata-build/usr/ --sysconfdir=/home/suricata-build/etc --localstatedir=/home/suricata-build/var
   build:
     commands:
       - echo Running install
