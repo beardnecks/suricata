@@ -1,0 +1,24 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - git clone https://github.com/OISF/libhtp -b 0.5.x
+      - |
+          cd suricata-update
+          curl -L \
+              https://github.com/OISF/suricata-update/archive/master.tar.gz | \
+              tar zxvf - --strip-components=1
+      - cd ..
+      - |
+        ./autogen.sh
+        ./configure --enable-unittests \
+              --enable-debug \
+              --enable-lua \
+              --enable-geoip \
+              --enable-profiling \
+              --enable-profiling-locks
+  build:
+    commands:
+      - make -j4
+      - make -j4 check
