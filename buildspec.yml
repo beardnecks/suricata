@@ -24,7 +24,7 @@ phases:
   post_build:
     commands:
       - echo Packaging application
-      - fpm -s dir -t rpm -n suricata-RC -v 1.000A -C /home/suricata-build/ -p suricata-1.000A_64-1.rpm -d "libnet-devel > 0" -d "nss-devel > 0 " usr/ var/ etc/
+      - fpm -s dir -t rpm -n suricata-RC -v 1.000A -C /home/suricata-build/ -p suricata-1.000A_64-1.rpm -d "libnet-devel > 0" -d "nss-devel >0 " usr/ var/ etc/
 artifacts:
   files:
     - 'suricata-1.000A_64-1.rpm'
