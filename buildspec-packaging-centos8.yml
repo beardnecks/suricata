@@ -1,0 +1,32 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo Downloading source code 
+      - git clone https://github.com/OISF/libhtp -b 0.5.x
+      - |
+          cd suricata-update
+          curl -L \
+              https://github.com/OISF/suricata-update/archive/master.tar.gz | \
+              tar zxvf - --strip-components=1
+      - cd ..
+      - echo Generating build files
+      - |
+        ./autogen.sh
+        echo Configuring the make and make install
+        ./configure --disable-gccmarch-native --prefix=/home/suricata-build/usr/ --sysconfdir=/home/suricata-build/etc --localstatedir=/home/suricata-build/var
+  build:
+    commands:
+      - echo Running install
+      - make -j4
+      - make install-full
+  post_build:
+    commands:
+      - echo Packaging application
+      - fpm -s dir -t rpm -n suricata-RC -v 1.000A -C /home/suricata-build/ -p suricata-1.000A_64-1.rpm /usr/
+artifacts:
+  files:
+    - 'suricata-1.000A_64-1.rpm'
+  discart paths: yes
+  
