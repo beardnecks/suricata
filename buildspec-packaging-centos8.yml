@@ -4,7 +4,7 @@ phases:
   pre_build:
     commands:
       - echo Downloading source code 
-      - git clone https://github.com/OISF/libhtp -b 0.5.x
+      - git clone https://github.com/OISF/libhtp -b 0.4.x
       - |
           cd suricata-update
           curl -L \
@@ -20,7 +20,7 @@ phases:
     commands:
       - echo Running install
       - make -j4
-      - DESTDIR=/home/suricata-build make install-full
+      - make install-full DESTDIR=/home/suricata-build
   post_build:
     commands:
       - echo Packaging application
