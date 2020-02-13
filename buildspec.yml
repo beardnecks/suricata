@@ -19,7 +19,8 @@ phases:
     commands:
       - echo Running install
       - make -j4
-      - make install-full DESTDIR=/home/suricata-build
+      - make install DESTDIR=/home/suricata-build
+      - make install-conf DESTDIR=/home/suricata-build
   post_build:
     commands:
       - echo Packaging application
