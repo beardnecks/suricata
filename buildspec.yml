@@ -19,8 +19,8 @@ phases:
     commands:
       - echo Running install
       - make -j4
-      - make install DESTDIR="($pwd)/rpm"
-      - make install-conf DESTDIR="($pwd)/rpm"
+      - make install DESTDIR="$PWD"/rpm
+      - make install-conf DESTDIR="$PWD"/rpm
   post_build:
     commands:
       - echo Packaging application
