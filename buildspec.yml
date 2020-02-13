@@ -15,11 +15,11 @@ phases:
       - |
         ./autogen.sh
         echo Configuring the make and make install
-        ./configure --disable-gccmarch-native --enable-unittests --prefix=/usr --sysconfdir=/etc --localstatedir=/var
+        ./configure --disable-gccmarch-native --enable-unittests 
   build:
     commands:
       - echo Running install
-      - make
+      - make j4
       - make install-full DESTDIR=/home/suricata-build
   post_build:
     commands:
