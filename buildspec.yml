@@ -14,11 +14,11 @@ phases:
       - echo Generating build files
       - ./autogen.sh
       - echo Configuring the make and make install
-      - ./configure --disable-gccmarch-native --enable-unittests 
+      - ./configure --disable-gccmarch-native --enable-unittests --prefix=/usr --sysconfdir=/etc --localstatedir=/var
   build:
     commands:
       - echo Running install
-      - make -j4
+      - make j4
       - make install-full DESTDIR=/home/suricata-build
   post_build:
     commands:
@@ -27,4 +27,4 @@ phases:
 artifacts:
   files:
     - 'suricata-1.000A_64-1.rpm'
-  discard-paths: yes
+  discard-paths: yes 
