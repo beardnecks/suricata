@@ -12,10 +12,9 @@ phases:
               tar zxvf - --strip-components=1
       - cd ..
       - echo Generating build files
-      - |
-        ./autogen.sh
-        echo Configuring the make and make install
-        ./configure --disable-gccmarch-native --enable-unittests 
+      - ./autogen.sh
+      - echo Configuring the make and make install
+      - ./configure --disable-gccmarch-native --enable-unittests 
   build:
     commands:
       - echo Running install
