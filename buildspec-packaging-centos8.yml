@@ -12,21 +12,20 @@ phases:
               tar zxvf - --strip-components=1
       - cd ..
       - echo Generating build files
-      - |
-        ./autogen.sh
-        echo Configuring the make and make install
-        ./configure --disable-gccmarch-native --enable-unittests --prefix=/usr --sysconfdir=/etc --localstatedir=/var
+      - ./autogen.sh
+      - echo Configuring the make and make install
+      - ./configure --disable-gccmarch-native --enable-unittests --prefix=/usr --sysconfdir=/etc --localstatedir=/var
   build:
     commands:
       - echo Running install
-      - make
-      - make install-full DESTDIR=/home/suricata-build
+      - make -j4
+      - make install DESTDIR="($pwd)"/rpm
+      - make install-conf DESTDIR="($pwd)"/rpm
   post_build:
     commands:
       - echo Packaging application
-      - fpm -s dir -t rpm -n suricata-RC -v 1.000A -C /home/suricata-build/ -p suricata-1.000A_64-1.rpm -d "libnet-devel > 0" -d "nss-devel > 0" usr/ var/ etc/
+      - fpm -s dir -t rpm -n suricata-RC -v 1.000A -C "($pwd)"/rpm/ -p suricata-1.000A_64-1.rpm -d "libnet-devel > 0" -d "nss-devel > 0" usr/ var/ etc/
 artifacts:
   files:
     - 'suricata-1.000A_64-1.rpm'
-  discard-paths: yes
-  
+  discard-paths: yes 
