@@ -18,14 +18,14 @@ phases:
   build:
     commands:
       - echo Running install
-      - echo CPU count ${CPU_COUNT} 
-      - make -j4
+      - echo CPU count ${nproc} 
+      - make -j${nproc}
       - make install DESTDIR=${PWD}/rpm
       - make install-conf DESTDIR=${PWD}/rpm
   post_build:
     commands:
       - echo Packaging application
-      - fpm -s dir -t rpm -n suricata -v $(echo ${PWD}/rpm/usr/bin/suricata -V | awk '{print $5}') -C ${PWD}/rpm/ -p suricata-1.000A_64-1.rpm -d "libnet-devel > 0" -d "nss-devel > 0" usr/ var/ etc/
+      - fpm -s dir -t rpm -n suricata -v $(echo ${PWD}/rpm/usr/bin/suricata -V | awk '{print $5}') -C -p -d -d ${PWD}/rpm suricata-1.000A_64-1.rpm "libnet-devel > 0" "nss-devel > 0" usr/ var/ etc/
 artifacts:
   files:
     - 'suricata-1.000A_64-1.rpm'
