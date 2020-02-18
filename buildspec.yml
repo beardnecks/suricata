@@ -18,8 +18,8 @@ phases:
   build:
     commands:
       - echo Running install
-      - echo CPU count ${nproc} 
-      - make -j${nproc}
+      - echo CPU count $(nproc) 
+      - make -j$(nproc)
       - make install DESTDIR=${PWD}/rpm
       - make install-conf DESTDIR=${PWD}/rpm
   post_build:
