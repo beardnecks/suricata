@@ -28,4 +28,5 @@ phases:
 artifacts:
   files:
     - 'suricata-versjons-var.rpm'
+
   discard-paths: yes 
