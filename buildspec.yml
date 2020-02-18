@@ -22,6 +22,12 @@ phases:
       - make -j$(nproc)
       - make install DESTDIR=${PWD}/rpm
       - make install-conf DESTDIR=${PWD}/rpm
+      - ls ls -la
+      - cd ${PWD}/rpm
+      - ls -la 
+      - cd
+      - cd ${PWD}/rpm/bin/suricata
+      - ls -la
   post_build:
     commands:
       - echo Packaging application
