@@ -25,9 +25,9 @@ phases:
   post_build:
     commands:
       - echo Packaging application
-      - fpm -s dir -t rpm -n suricata -v $(echo ${PWD}/rpm/usr/bin/suricata -V | awk '{print $5}') -C -p -d -d ${PWD}/rpm suricata-1.000A_64-1.rpm "libnet-devel > 0" "nss-devel > 0" usr/ var/ etc/
+      - fpm -s dir -t rpm -n suricata -v $(${PWD}/rpm/usr/bin/suricata -V | awk '{print $5}') -C ${PWD}/rpm -p ${PWD}/rpm/suricata-rpm.rpm -d "libnet-devel > 0" -d "nss-devel > 0" usr/ var/ etc/
 artifacts:
   files:
-    - 'suricata-1.000A_64-1.rpm'
+    - 'suricata-rpm.rpm'
 
   discard-paths: yes 
