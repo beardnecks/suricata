@@ -26,12 +26,12 @@ phases:
       - cd ${HOME}/rpm
       - ls -la 
       - cd
-      - cd ${HOME}/rpm/bin
+      - cd ${HOME}/rpm/usr/bin
       - ls -la
   post_build:
     commands:
       - echo Packaging application
-      - fpm -s dir -t rpm -n suricata -v $(${HOME}/rpm/usr/bin/suricata -V | awk '{print $5}') -C ${HOME}/rpm -p ${HOME}/rpm/suricata-rpm.rpm -d "libnet-devel > 0" -d "nss-devel > 0" usr/ var/ etc/
+      - fpm -s dir -t rpm -n suricata -v $(${HOME}/rpm/usr/bin/suricata -V | awk '{print $5}') -C ${HOME}/rpm -p suricata-rpm.rpm -d "libnet-devel > 0" -d "nss-devel > 0" usr/ var/ etc/
 artifacts:
   files:
     - 'suricata-rpm.rpm'
