@@ -22,16 +22,10 @@ phases:
       - make -j$(nproc)
       - make install DESTDIR=${HOME}/rpm
       - make install-conf DESTDIR=${HOME}/rpm
-      - ls -la
-      - cd ${HOME}/rpm
-      - ls -la 
-      - cd
-      - cd ${HOME}/rpm/usr/bin
-      - ls -la
   post_build:
     commands:
       - echo Packaging application
-      - fpm -s dir -t rpm -n suricata -v $(${HOME}/rpm/usr/bin/suricata -V | awk '{print $5}' | awk '{$1=$1};1') -C ${HOME}/rpm -p suricata-rpm.rpm -d "libnet-devel > 0" -d "nss-devel > 0" usr/ var/ etc/
+      - fpm -s dir -t rpm -n suricata -v "$(LD_LIBRARY_PATH=${HOME}/rpm/usr/lib64 ${HOME}/rpm/usr/bin/suricata -V | awk '{print $5}' | awk '{$1=$1};1')" -p suricata-rpm.rpm -d "libnet-devel > 0" -d "nss-devel > 0" -C ${HOME}/rpm usr/ var/ etc/
 artifacts:
   files:
     - 'suricata-rpm.rpm'
