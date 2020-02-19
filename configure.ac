@@ -79,6 +79,7 @@
     AC_PROG_AWK
     AC_PROG_CC
     AC_PROG_CPP
+    AC_PROG_RANLIB
     AC_PROG_INSTALL
     AC_PROG_LN_S
     AC_PROG_MAKE_SET
@@ -184,15 +185,16 @@
     AC_CHECK_HEADERS([limits.h netdb.h netinet/in.h poll.h sched.h signal.h])
     AC_CHECK_HEADERS([stdarg.h stdint.h stdio.h stdlib.h stdbool.h string.h strings.h sys/ioctl.h])
     AC_CHECK_HEADERS([syslog.h sys/prctl.h sys/socket.h sys/stat.h sys/syscall.h])
-    AC_CHECK_HEADERS([sys/time.h time.h unistd.h])
+    AC_CHECK_HEADERS([sys/time.h time.h unistd.h sys/param.h])
     AC_CHECK_HEADERS([sys/ioctl.h linux/if_ether.h linux/if_packet.h linux/filter.h])
     AC_CHECK_HEADERS([linux/ethtool.h linux/sockios.h])
-    AC_CHECK_HEADERS([glob.h])
+    AC_CHECK_HEADERS([glob.h locale.h])
     AC_CHECK_HEADERS([dirent.h fnmatch.h])
     AC_CHECK_HEADERS([sys/resource.h sys/types.h sys/un.h])
     AC_CHECK_HEADERS([sys/random.h])
     AC_CHECK_HEADERS([utime.h])
     AC_CHECK_HEADERS([libgen.h])
+    AC_CHECK_HEADERS([mach/mach.h])
 
     AC_CHECK_HEADERS([sys/socket.h net/if.h sys/mman.h linux/if_arp.h], [], [],
     [[#ifdef HAVE_SYS_SOCKET_H
@@ -217,28 +219,43 @@
 
     # Checks for typedefs, structures, and compiler characteristics.
     AC_C_INLINE
+    AC_C_RESTRICT
     AC_TYPE_PID_T
+    AC_TYPE_MODE_T
     AC_TYPE_SIZE_T
+    AC_TYPE_SSIZE_T
+    AC_TYPE_INT8_T
+    AC_TYPE_INT16_T
     AC_TYPE_INT32_T
+    AC_TYPE_INT64_T
+    AC_TYPE_UINT8_T
     AC_TYPE_UINT16_T
     AC_TYPE_UINT32_T
     AC_TYPE_UINT64_T
-    AC_TYPE_UINT8_T
+    AC_STRUCT_TIMEZONE
+    AC_CHECK_TYPES([ptrdiff_t])
     AC_HEADER_STDBOOL
 
     # Checks for library functions.
     AC_FUNC_MALLOC
     AC_FUNC_REALLOC
-    AC_CHECK_FUNCS([gettimeofday memset strcasecmp strchr strrchr strdup strndup strerror strncasecmp strtol strtoul memchr memrchr clock_gettime])
-    AC_CHECK_FUNCS([strptime])
+    AC_FUNC_FORK
+    AC_FUNC_MKTIME
+    AC_FUNC_MMAP
+    AC_FUNC_STRTOD
+
+    AC_CHECK_FUNCS([memmem memset memchr memrchr memmove])
+    AC_CHECK_FUNCS([strcasecmp strchr strrchr strdup strndup strncasecmp strtol strtoul strstr strpbrk strtoull strtoumax])
+    AC_CHECK_FUNCS([strerror])
+    AC_CHECK_FUNCS([gethostname inet_ntoa uname])
+    AC_CHECK_FUNCS([gettimeofday clock_gettime utime strptime tzset localtime_r])
+    AC_CHECK_FUNCS([socket setenv select putenv dup2 endgrent endpwent atexit munmap])
 
     AC_CHECK_DECL([getrandom],
         AC_DEFINE([HAVE_GETRANDOM], [1], [Use getrandom]),
         [], [
             #include <sys/random.h> 
             ])
-
-    AC_CHECK_FUNCS([utime])
 
     OCFLAGS=$CFLAGS
     CFLAGS=""
@@ -1915,11 +1932,15 @@
         fi
     fi
 
-  # Napatech - Using the 3GD API
+    # Napatech - Using the 3GD API
     AC_ARG_ENABLE(napatech,
                 AS_HELP_STRING([--enable-napatech],[Enabled Napatech Devices]),
                 [ enable_napatech=$enableval ],
                 [ enable_napatech=no])
+    AC_ARG_ENABLE(napatech_bypass,
+                AS_HELP_STRING([--disable-napatech-bypass],[Disable Bypass feature on Napatech cards]),
+                [ napatech_bypass=$enableval ],
+                [ napatech_bypass=yes])
     AC_ARG_WITH(napatech_includes,
                 [  --with-napatech-includes=DIR   napatech include directory],
                 [with_napatech_includes="$withval"],[with_napatech_includes="/opt/napatech3/include"])
@@ -1957,6 +1978,17 @@
         fi
 
         AC_DEFINE([HAVE_NAPATECH],[1],(Napatech capture card support))
+        if test "$napatech_bypass" = "yes"; then
+            AC_CHECK_LIB(ntapi, NT_FlowOpenAttrInit,NTFLOW="yes",NTFLOW="no")
+            if test "$NTFLOW" = "yes"; then
+                echo "   Napatech Flow Processing is Enabled (--disable-napatech-bypass if not needed)"
+                AC_DEFINE([NAPATECH_ENABLE_BYPASS],[1],(Napatech flowdirector support))
+            else
+                echo "Napatech Flow Processing is not available"
+            fi
+        else
+            echo "Napatech Flow Processing is Disabled."
+        fi
     fi
 
   # liblua
@@ -2518,7 +2550,7 @@ fi
 if test "${enable_ebpf}" = "yes" || test "${enable_unittests}" = "yes"; then
   AC_DEFINE([CAPTURE_OFFLOAD_MANAGER], [1],[Building flow bypass manager code])
 fi
-if test "${enable_ebpf}" = "yes" || test "${enable_nfqueue}" = "yes" || test "${enable_pfring}" = "yes" || test "${enable_unittests}" = "yes"; then
+if test "${enable_ebpf}" = "yes" || test "${enable_nfqueue}" = "yes" || test "${enable_pfring}" = "yes" || test "${enable_napatech}" = "yes"  || test "${enable_unittests}" = "yes"; then
   AC_DEFINE([CAPTURE_OFFLOAD], [1],[Building flow capture bypass code])
 fi
 

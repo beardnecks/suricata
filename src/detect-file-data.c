@@ -405,18 +405,12 @@ static int DetectEngineInspectFiledata(
     int r = 0;
     int match = 0;
 
-    // TODO remove
-    if (f->alproto == ALPROTO_HTTP) {
-        abort();
-    }
-
     const DetectEngineTransforms *transforms = NULL;
     if (!engine->mpm) {
         transforms = engine->v2.transforms;
     }
 
-    FileContainer *ffc = AppLayerParserGetFiles(f->proto, f->alproto,
-                                                f->alstate, flags);
+    FileContainer *ffc = AppLayerParserGetFiles(f, flags);
     if (ffc == NULL) {
         return DETECT_ENGINE_INSPECT_SIG_NO_MATCH;
     }
@@ -468,10 +462,12 @@ typedef struct PrefilterMpmFiledata {
 /** \brief Filedata Filedata Mpm prefilter callback
  *
  *  \param det_ctx detection engine thread ctx
+ *  \param pectx inspection context
  *  \param p packet to inspect
  *  \param f flow to inspect
  *  \param txv tx to inspect
- *  \param pectx inspection context
+ *  \param idx transaction id
+ *  \param flags STREAM_* flags including direction
  */
 static void PrefilterTxFiledata(DetectEngineThreadCtx *det_ctx,
         const void *pectx,
@@ -484,8 +480,7 @@ static void PrefilterTxFiledata(DetectEngineThreadCtx *det_ctx,
     const MpmCtx *mpm_ctx = ctx->mpm_ctx;
     const int list_id = ctx->list_id;
 
-    FileContainer *ffc = AppLayerParserGetFiles(f->proto, f->alproto,
-                                                f->alstate, flags);
+    FileContainer *ffc = AppLayerParserGetFiles(f, flags);
     int local_file_id = 0;
     if (ffc != NULL) {
         File *file = ffc->head;

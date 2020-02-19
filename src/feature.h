@@ -1,4 +1,4 @@
-/* Copyright (C) 2013 Open Information Security Foundation
+/* Copyright (C) 2019 Open Information Security Foundation
  *
  * You can copy, redistribute or modify this Program under the terms of
  * the GNU General Public License version 2 as published by the Free
@@ -18,25 +18,21 @@
 /**
  * \file
  *
- * \author Eric Leblond <eric@regit.org>
- *
+ * \author Jeff Lucovsky <jeff@lucovsky.org>
  */
 
-#ifndef __UTIL_UTIL_CONF_H__
-#define __UTIL_UTIL_CONF_H__
+#ifndef __FEATURE_H__
+#define __FEATURE_H__
 
-#include "conf.h"
+/* Provided feature names */
+#define FEATURE_OUTPUT_FILESTORE    "output::file-store"
 
-TmEcode ConfigSetLogDirectory(const char *name);
-const char *ConfigGetLogDirectory(void);
-TmEcode ConfigCheckLogDirectoryExists(const char *log_dir);
+void ProvidesFeature(const char *);
+bool RequiresFeature(const char *);
 
-TmEcode ConfigSetDataDirectory(char *name);
-const char *ConfigGetDataDirectory(void);
-TmEcode ConfigCheckDataDirectory(const char *log_dir);
+void FeatureDump(void);
 
-ConfNode *ConfFindDeviceConfig(ConfNode *node, const char *iface);
+void FeatureTrackingRelease(void);
+void FeatureTrackingRegister(void);
 
-int ConfUnixSocketIsEnable(void);
-
-#endif /* __UTIL_UTIL_CONF_H__ */
+#endif /* __FEATURE_H__ */

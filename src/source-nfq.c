@@ -132,20 +132,20 @@ static NFQQueueVars *g_nfq_q;
 static uint16_t receive_queue_num = 0;
 static SCMutex nfq_init_lock;
 
-TmEcode ReceiveNFQLoop(ThreadVars *tv, void *data, void *slot);
-TmEcode ReceiveNFQThreadInit(ThreadVars *, const void *, void **);
-TmEcode ReceiveNFQThreadDeinit(ThreadVars *, void *);
-void ReceiveNFQThreadExitStats(ThreadVars *, void *);
+static TmEcode ReceiveNFQLoop(ThreadVars *tv, void *data, void *slot);
+static TmEcode ReceiveNFQThreadInit(ThreadVars *, const void *, void **);
+static TmEcode ReceiveNFQThreadDeinit(ThreadVars *, void *);
+static void ReceiveNFQThreadExitStats(ThreadVars *, void *);
 
-TmEcode VerdictNFQ(ThreadVars *, Packet *, void *, PacketQueue *, PacketQueue *);
-TmEcode VerdictNFQThreadInit(ThreadVars *, const void *, void **);
-TmEcode VerdictNFQThreadDeinit(ThreadVars *, void *);
+static TmEcode VerdictNFQ(ThreadVars *, Packet *, void *);
+static TmEcode VerdictNFQThreadInit(ThreadVars *, const void *, void **);
+static TmEcode VerdictNFQThreadDeinit(ThreadVars *, void *);
 
-TmEcode DecodeNFQ(ThreadVars *, Packet *, void *, PacketQueue *, PacketQueue *);
-TmEcode DecodeNFQThreadInit(ThreadVars *, const void *, void **);
-TmEcode DecodeNFQThreadDeinit(ThreadVars *tv, void *data);
+static TmEcode DecodeNFQ(ThreadVars *, Packet *, void *);
+static TmEcode DecodeNFQThreadInit(ThreadVars *, const void *, void **);
+static TmEcode DecodeNFQThreadDeinit(ThreadVars *tv, void *data);
 
-TmEcode NFQSetVerdict(Packet *p);
+static TmEcode NFQSetVerdict(Packet *p);
 
 typedef enum NFQMode_ {
     NFQ_ACCEPT_MODE,
@@ -562,14 +562,8 @@ static int NFQCallBack(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
 #endif /* COUNTERS */
     (void) SC_ATOMIC_ADD(ntv->livedev->pkts, 1);
 
-    if (ntv->slot) {
-        if (TmThreadsSlotProcessPkt(tv, ntv->slot, p) != TM_ECODE_OK) {
-            TmqhOutputPacketpool(ntv->tv, p);
-            return -1;
-        }
-    } else {
-        /* pass on... */
-        tv->tmqh_out(tv, p);
+    if (TmThreadsSlotProcessPkt(tv, ntv->slot, p) != TM_ECODE_OK) {
+        return -1;
     }
 
     return 0;
@@ -980,7 +974,7 @@ static void NFQRecvPkt(NFQQueueVars *t, NFQThreadVars *tv)
                 NFQVerdictCacheFlush(t);
 
             /* handle timeout */
-            TmThreadsCaptureHandleTimeout(tv->tv, tv->slot, NULL);
+            TmThreadsCaptureHandleTimeout(tv->tv, NULL);
         } else {
 #ifdef COUNTERS
             NFQMutexLock(t);
@@ -1199,7 +1193,7 @@ TmEcode NFQSetVerdict(Packet *p)
 /**
  * \brief NFQ verdict module packet entry function
  */
-TmEcode VerdictNFQ(ThreadVars *tv, Packet *p, void *data, PacketQueue *pq, PacketQueue *postpq)
+TmEcode VerdictNFQ(ThreadVars *tv, Packet *p, void *data)
 {
     NFQThreadVars *ntv = (NFQThreadVars *)data;
     /* update counters */
@@ -1230,17 +1224,14 @@ TmEcode VerdictNFQ(ThreadVars *tv, Packet *p, void *data, PacketQueue *pq, Packe
 /**
  * \brief Decode a packet coming from NFQ
  */
-TmEcode DecodeNFQ(ThreadVars *tv, Packet *p, void *data, PacketQueue *pq, PacketQueue *postpq)
+TmEcode DecodeNFQ(ThreadVars *tv, Packet *p, void *data)
 {
 
     IPV4Hdr *ip4h = (IPV4Hdr *)GET_PKT_DATA(p);
     IPV6Hdr *ip6h = (IPV6Hdr *)GET_PKT_DATA(p);
     DecodeThreadVars *dtv = (DecodeThreadVars *)data;
 
-    /* XXX HACK: flow timeout can call us for injected pseudo packets
-     *           see bug: https://redmine.openinfosecfoundation.org/issues/1107 */
-    if (PKT_IS_PSEUDOPKT(p))
-        return TM_ECODE_OK;
+    BUG_ON(PKT_IS_PSEUDOPKT(p));
 
     DecodeUpdatePacketCounters(tv, dtv, p);
 
@@ -1249,13 +1240,13 @@ TmEcode DecodeNFQ(ThreadVars *tv, Packet *p, void *data, PacketQueue *pq, Packet
             return TM_ECODE_FAILED;
         }
         SCLogDebug("IPv4 packet");
-        DecodeIPV4(tv, dtv, p, GET_PKT_DATA(p), GET_PKT_LEN(p), pq);
+        DecodeIPV4(tv, dtv, p, GET_PKT_DATA(p), GET_PKT_LEN(p));
     } else if (IPV6_GET_RAW_VER(ip6h) == 6) {
         if (unlikely(GET_PKT_LEN(p) > USHRT_MAX)) {
             return TM_ECODE_FAILED;
         }
         SCLogDebug("IPv6 packet");
-        DecodeIPV6(tv, dtv, p, GET_PKT_DATA(p), GET_PKT_LEN(p), pq);
+        DecodeIPV6(tv, dtv, p, GET_PKT_DATA(p), GET_PKT_LEN(p));
     } else {
         SCLogDebug("packet unsupported by NFQ, first byte: %02x", *GET_PKT_DATA(p));
     }

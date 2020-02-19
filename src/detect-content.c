@@ -374,7 +374,7 @@ void DetectContentFree(void *ptr)
  *  \retval 1 valid
  *  \retval 0 invalid
  */
-_Bool DetectContentPMATCHValidateCallback(const Signature *s)
+bool DetectContentPMATCHValidateCallback(const Signature *s)
 {
     if (!(s->flags & SIG_FLAG_DSIZE)) {
         return TRUE;
@@ -987,7 +987,7 @@ static int DetectContentLongPatternMatchTest(uint8_t *raw_eth_pkt, uint16_t pkts
     memset(&th_v, 0, sizeof(th_v));
 
     FlowInitConfig(FLOW_QUIET);
-    DecodeEthernet(&th_v, &dtv, p, raw_eth_pkt, pktsize, NULL);
+    DecodeEthernet(&th_v, &dtv, p, raw_eth_pkt, pktsize);
 
     DetectEngineCtx *de_ctx = DetectEngineCtxInit();
     if (de_ctx == NULL) {

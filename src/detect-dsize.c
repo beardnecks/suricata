@@ -57,7 +57,7 @@ static void DsizeRegisterTests(void);
 static void DetectDsizeFree(void *);
 
 static int PrefilterSetupDsize(DetectEngineCtx *de_ctx, SigGroupHead *sgh);
-static _Bool PrefilterDsizeIsPrefilterable(const Signature *s);
+static bool PrefilterDsizeIsPrefilterable(const Signature *s);
 
 /**
  * \brief Registration function for dsize: keyword
@@ -343,7 +343,7 @@ PrefilterPacketDsizeSet(PrefilterPacketHeaderValue *v, void *smctx)
     v->u16[2] = a->dsize2;
 }
 
-static _Bool
+static bool
 PrefilterPacketDsizeCompare(PrefilterPacketHeaderValue v, void *smctx)
 {
     const DetectDsizeData *a = smctx;
@@ -362,7 +362,7 @@ static int PrefilterSetupDsize(DetectEngineCtx *de_ctx, SigGroupHead *sgh)
             PrefilterPacketDsizeMatch);
 }
 
-static _Bool PrefilterDsizeIsPrefilterable(const Signature *s)
+static bool PrefilterDsizeIsPrefilterable(const Signature *s)
 {
     const SigMatch *sm;
     for (sm = s->init_data->smlists[DETECT_SM_LIST_MATCH] ; sm != NULL; sm = sm->next) {
@@ -907,7 +907,7 @@ static int DetectDsizeIcmpv6Test01 (void)
     p->dst.family = AF_INET6;
     p->ip6h = &ip6h;
 
-    DecodeIPV6(&tv, &dtv, p, raw_icmpv6, sizeof(raw_icmpv6), NULL);
+    DecodeIPV6(&tv, &dtv, p, raw_icmpv6, sizeof(raw_icmpv6));
 
     DetectEngineCtx *de_ctx = DetectEngineCtxInit();
     if (de_ctx == NULL) {

@@ -334,7 +334,7 @@ struct DetectEngineThreadCtx_;// DetectEngineThreadCtx;
 
 /* inspection buffer is a simple structure that is passed between prefilter,
  * transformation functions and inspection functions.
- * Initialy setup with 'orig' ptr and len, transformations can then take
+ * Initially setup with 'orig' ptr and len, transformations can then take
  * then and fill the 'buf'. Multiple transformations can update the buffer,
  * both growing and shrinking it.
  * Prefilter and inspection will only deal with 'inspect'. */
@@ -426,8 +426,8 @@ typedef struct DetectBufferType_ {
     const char *description;
     int id;
     int parent_id;
-    _Bool mpm;
-    _Bool packet; /**< compat to packet matches */
+    bool mpm;
+    bool packet; /**< compat to packet matches */
     bool supports_transforms;
     void (*SetupCallback)(const struct DetectEngineCtx_ *, struct Signature_ *);
     bool (*ValidateCallback)(const struct Signature_ *, const char **sigerror);
@@ -502,7 +502,7 @@ typedef struct SignatureInitData_ {
     int transform_cnt;
 
     /** score to influence rule grouping. A higher value leads to a higher
-     *  likelyhood of a rulegroup with this sig ending up as a contained
+     *  likelihood of a rulegroup with this sig ending up as a contained
      *  group. */
     int whitelist;
 
@@ -851,7 +851,7 @@ typedef struct DetectEngineCtx_ {
     /* the max local id used amongst all sigs */
     int32_t byte_extract_max_local_id;
 
-    /** version of the detect engine */
+    /** version of the detect engine. The version is incremented on reloads */
     uint32_t version;
 
     /** sgh for signatures that match against invalid packets. In those cases
@@ -900,7 +900,7 @@ typedef struct DetectEngineCtx_ {
     /** id of loader thread 'owning' this de_ctx */
     int loader_id;
 
-    /** are we useing just mpm or also other prefilters */
+    /** are we using just mpm or also other prefilters */
     enum DetectEnginePrefilterSetting prefilter_setting;
 
     HashListTable *dport_hash_table;
@@ -1002,7 +1002,7 @@ typedef struct RuleMatchCandidateTx {
   */
 typedef struct DetectEngineThreadCtx_ {
     /** \note multi-tenant hash lookup code from Detect() *depends*
-     *        on this beeing the first member */
+     *        on this being the first member */
     uint32_t tenant_id;
 
     /** ticker that is incremented once per packet. */
@@ -1185,7 +1185,7 @@ typedef struct SigTableElmt_ {
     /** keyword setup function pointer */
     int (*Setup)(DetectEngineCtx *, Signature *, const char *);
 
-    _Bool (*SupportsPrefilter)(const Signature *s);
+    bool (*SupportsPrefilter)(const Signature *s);
     int (*SetupPrefilter)(DetectEngineCtx *de_ctx, struct SigGroupHead_ *sgh);
 
     void (*Free)(void *);
@@ -1445,12 +1445,12 @@ typedef struct DetectEngineMasterCtx_ {
 } DetectEngineMasterCtx;
 
 /* Table with all SigMatch registrations */
-SigTableElmt sigmatch_table[DETECT_TBLSIZE];
+extern SigTableElmt sigmatch_table[DETECT_TBLSIZE];
 
 /** Remember to add the options in SignatureIsIPOnly() at detect.c otherwise it wont be part of a signature group */
 
 /* detection api */
-TmEcode Detect(ThreadVars *tv, Packet *p, void *data, PacketQueue *pq, PacketQueue *postpq);
+TmEcode Detect(ThreadVars *tv, Packet *p, void *data);
 
 SigMatch *SigMatchAlloc(void);
 Signature *SigFindSignatureBySidGid(DetectEngineCtx *, uint32_t, uint32_t);

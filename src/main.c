@@ -1,4 +1,4 @@
-/* Copyright (C) 2013 Open Information Security Foundation
+/* Copyright (C) 2020 Open Information Security Foundation
  *
  * You can copy, redistribute or modify this Program under the terms of
  * the GNU General Public License version 2 as published by the Free
@@ -15,28 +15,9 @@
  * 02110-1301, USA.
  */
 
-/**
- * \file
- *
- * \author Eric Leblond <eric@regit.org>
- *
- */
+#include "suricata.h"
 
-#ifndef __UTIL_UTIL_CONF_H__
-#define __UTIL_UTIL_CONF_H__
-
-#include "conf.h"
-
-TmEcode ConfigSetLogDirectory(const char *name);
-const char *ConfigGetLogDirectory(void);
-TmEcode ConfigCheckLogDirectoryExists(const char *log_dir);
-
-TmEcode ConfigSetDataDirectory(char *name);
-const char *ConfigGetDataDirectory(void);
-TmEcode ConfigCheckDataDirectory(const char *log_dir);
-
-ConfNode *ConfFindDeviceConfig(ConfNode *node, const char *iface);
-
-int ConfUnixSocketIsEnable(void);
-
-#endif /* __UTIL_UTIL_CONF_H__ */
+int main(int argc, char **argv)
+{
+    return SuricataMain(argc, argv);
+}

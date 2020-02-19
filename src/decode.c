@@ -28,7 +28,7 @@
  * example we have DecodeIPV4() for IPv4 and DecodePPP() for
  * PPP.
  *
- * These functions have all a pkt and and a len argument which
+ * These functions have all a pkt and a len argument which
  * are respectively a pointer to the protocol data and the length
  * of this protocol data.
  *
@@ -68,27 +68,30 @@
 #include "output-flow.h"
 #include "flow-storage.h"
 
+uint32_t default_packet_size = 0;
 extern bool stats_decoder_events;
-const char *stats_decoder_events_prefix;
+extern const char *stats_decoder_events_prefix;
 extern bool stats_stream_events;
 
 int DecodeTunnel(ThreadVars *tv, DecodeThreadVars *dtv, Packet *p,
-        const uint8_t *pkt, uint32_t len, PacketQueue *pq, enum DecodeTunnelProto proto)
+        const uint8_t *pkt, uint32_t len, enum DecodeTunnelProto proto)
 {
     switch (proto) {
         case DECODE_TUNNEL_PPP:
-            return DecodePPP(tv, dtv, p, pkt, len, pq);
+            return DecodePPP(tv, dtv, p, pkt, len);
         case DECODE_TUNNEL_IPV4:
-            return DecodeIPV4(tv, dtv, p, pkt, len, pq);
+            return DecodeIPV4(tv, dtv, p, pkt, len);
         case DECODE_TUNNEL_IPV6:
         case DECODE_TUNNEL_IPV6_TEREDO:
-            return DecodeIPV6(tv, dtv, p, pkt, len, pq);
+            return DecodeIPV6(tv, dtv, p, pkt, len);
         case DECODE_TUNNEL_VLAN:
-            return DecodeVLAN(tv, dtv, p, pkt, len, pq);
+            return DecodeVLAN(tv, dtv, p, pkt, len);
         case DECODE_TUNNEL_ETHERNET:
-            return DecodeEthernet(tv, dtv, p, pkt, len, pq);
-        case DECODE_TUNNEL_ERSPAN:
-            return DecodeERSPAN(tv, dtv, p, pkt, len, pq);
+            return DecodeEthernet(tv, dtv, p, pkt, len);
+        case DECODE_TUNNEL_ERSPANII:
+            return DecodeERSPAN(tv, dtv, p, pkt, len);
+        case DECODE_TUNNEL_ERSPANI:
+            return DecodeERSPANTypeI(tv, dtv, p, pkt, len);
         default:
             SCLogDebug("FIXME: DecodeTunnel: protocol %" PRIu32 " not supported.", proto);
             break;
@@ -109,7 +112,7 @@ void PacketFree(Packet *p)
  * \brief Finalize decoding of a packet
  *
  * This function needs to be call at the end of decode
- * functions when decoding has been succesful.
+ * functions when decoding has been successful.
  *
  */
 void PacketDecodeFinalize(ThreadVars *tv, DecodeThreadVars *dtv, Packet *p)
@@ -273,8 +276,7 @@ inline int PacketCopyData(Packet *p, const uint8_t *pktdata, uint32_t pktlen)
  *  \retval p the pseudo packet or NULL if out of memory
  */
 Packet *PacketTunnelPktSetup(ThreadVars *tv, DecodeThreadVars *dtv, Packet *parent,
-                             const uint8_t *pkt, uint32_t len, enum DecodeTunnelProto proto,
-                             PacketQueue *pq)
+                             const uint8_t *pkt, uint32_t len, enum DecodeTunnelProto proto)
 {
     int ret;
 
@@ -286,7 +288,7 @@ Packet *PacketTunnelPktSetup(ThreadVars *tv, DecodeThreadVars *dtv, Packet *pare
         SCReturnPtr(NULL, "Packet");
     }
 
-    /* copy packet and set lenght, proto */
+    /* copy packet and set length, proto */
     PacketCopyData(p, pkt, len);
     p->recursion_level = parent->recursion_level + 1;
     p->ts.tv_sec = parent->ts.tv_sec;
@@ -304,7 +306,7 @@ Packet *PacketTunnelPktSetup(ThreadVars *tv, DecodeThreadVars *dtv, Packet *pare
     SET_TUNNEL_PKT(p);
 
     ret = DecodeTunnel(tv, dtv, p, GET_PKT_DATA(p),
-                       GET_PKT_LEN(p), pq, proto);
+                       GET_PKT_LEN(p), proto);
 
     if (unlikely(ret != TM_ECODE_OK) ||
             (proto == DECODE_TUNNEL_IPV6_TEREDO && (p->flags & PKT_IS_INVALID)))
@@ -383,7 +385,7 @@ Packet *PacketDefragPktSetup(Packet *parent, const uint8_t *pkt, uint32_t len, u
 
 /**
  *  \brief inform defrag "parent" that a pseudo packet is
- *         now assosiated to it.
+ *         now associated to it.
  */
 void PacketDefragPktSetupParent(Packet *parent)
 {
@@ -645,7 +647,7 @@ void DecodeThreadVarsFree(ThreadVars *tv, DecodeThreadVars *dtv)
 }
 
 /**
- * \brief Set data for Packet and set length when zeo copy is used
+ * \brief Set data for Packet and set length when zero copy is used
  *
  *  \param Pointer to the Packet to modify
  *  \param Pointer to the data
@@ -657,7 +659,8 @@ inline int PacketSetData(Packet *p, const uint8_t *pktdata, uint32_t pktlen)
     if (unlikely(!pktdata)) {
         return -1;
     }
-    p->ext_pkt = (uint8_t *)pktdata;
+    // ext_pkt cannot be const (because we sometimes copy)
+    p->ext_pkt = (uint8_t *) pktdata;
     p->flags |= PKT_ZERO_COPY;
 
     return 0;
