@@ -18,4 +18,4 @@ phases:
     commands:
       - make -j4
       - export PATH="$PATH:/usr/lib64"
-      - CONCURRENCY_LEVEL=4 make -j4 check
+      - CONCURRENCY_LEVEL=4 make check
