@@ -20,18 +20,18 @@ phases:
       - echo Running install
       - echo CPU count $(nproc) 
       - make -j$(nproc)
-      - make install DESTDIR=${PWD}/rpm
-      - make install-conf DESTDIR=${PWD}/rpm
+      - make install DESTDIR=${HOME}/rpm
+      - make install-conf DESTDIR=${HOME}/rpm
       - ls -la
-      - cd ${PWD}/rpm
+      - cd ${HOME}/rpm
       - ls -la 
       - cd
-      - cd ${PWD}/rpm/bin/suricata
+      - cd ${HOME}/rpm/bin/suricata
       - ls -la
   post_build:
     commands:
       - echo Packaging application
-      - fpm -s dir -t rpm -n suricata -v $(${PWD}/rpm/usr/bin/suricata -V | awk '{print $5}') -C ${PWD}/rpm -p ${PWD}/rpm/suricata-rpm.rpm -d "libnet-devel > 0" -d "nss-devel > 0" usr/ var/ etc/
+      - fpm -s dir -t rpm -n suricata -v $(${HOME}/rpm/usr/bin/suricata -V | awk '{print $5}') -C ${HOME}/rpm -p ${HOME}/rpm/suricata-rpm.rpm -d "libnet-devel > 0" -d "nss-devel > 0" usr/ var/ etc/
 artifacts:
   files:
     - 'suricata-rpm.rpm'
