@@ -1,4 +1,4 @@
-/* Copyright (C) 2007-2010 Open Information Security Foundation
+/* Copyright (C) 2007-2019 Open Information Security Foundation
  *
  * You can copy, redistribute or modify this Program under the terms of
  * the GNU General Public License version 2 as published by the Free
@@ -171,7 +171,7 @@ void DetectAppLayerInspectEngineRegister(const char *name,
         AppProto alproto, uint32_t dir,
         int progress, InspectEngineFuncPtr Callback)
 {
-    if (AppLayerParserIsTxAware(alproto)) {
+    if (AppLayerParserIsEnabled(alproto)) {
         if (!AppLayerParserSupportsTxDetectFlags(alproto)) {
             FatalError(SC_ERR_INITIALIZATION,
                 "Inspect engine registered for app-layer protocol without "
@@ -950,7 +950,7 @@ void DetectBufferRunSetupCallback(const DetectEngineCtx *de_ctx,
 }
 
 void DetectBufferTypeRegisterValidateCallback(const char *name,
-        _Bool (*ValidateCallback)(const Signature *, const char **sigerror))
+        bool (*ValidateCallback)(const Signature *, const char **sigerror))
 {
     BUG_ON(g_buffer_type_reg_closed);
     DetectBufferTypeRegister(name);
@@ -1685,19 +1685,19 @@ int DetectEngineInspectPktBufferGeneric(
 static void BreakCapture(void)
 {
     SCMutexLock(&tv_root_lock);
-    ThreadVars *tv = tv_root[TVT_PPT];
-    while (tv) {
+    for (ThreadVars *tv = tv_root[TVT_PPT]; tv != NULL; tv = tv->next) {
+        if ((tv->tmm_flags & TM_FLAG_RECEIVE_TM) == 0) {
+            continue;
+        }
         /* find the correct slot */
-        TmSlot *slots = tv->tm_slots;
-        while (slots != NULL) {
+        for (TmSlot *s = tv->tm_slots; s != NULL; s = s->slot_next) {
             if (suricata_ctl_flags != 0) {
                 SCMutexUnlock(&tv_root_lock);
                 return;
             }
 
-            TmModule *tm = TmModuleGetById(slots->tm_id);
+            TmModule *tm = TmModuleGetById(s->tm_id);
             if (!(tm->flags & TM_FLAG_RECEIVE_TM)) {
-                slots = slots->slot_next;
                 continue;
             }
 
@@ -1706,12 +1706,10 @@ static void BreakCapture(void)
             /* if the method supports it, BreakLoop. Otherwise we rely on
              * the capture method's recv timeout */
             if (tm->PktAcqLoop && tm->PktAcqBreakLoop) {
-                tm->PktAcqBreakLoop(tv, SC_ATOMIC_GET(slots->slot_data));
+                tm->PktAcqBreakLoop(tv, SC_ATOMIC_GET(s->slot_data));
             }
-
             break;
         }
-        tv = tv->next;
     }
     SCMutexUnlock(&tv_root_lock);
 }
@@ -1724,17 +1722,16 @@ static void InjectPackets(ThreadVars **detect_tvs,
                           DetectEngineThreadCtx **new_det_ctx,
                           int no_of_detect_tvs)
 {
-    int i;
     /* inject a fake packet if the detect thread isn't using the new ctx yet,
      * this speeds up the process */
-    for (i = 0; i < no_of_detect_tvs; i++) {
+    for (int i = 0; i < no_of_detect_tvs; i++) {
         if (SC_ATOMIC_GET(new_det_ctx[i]->so_far_used_by_detect) != 1) {
             if (detect_tvs[i]->inq != NULL) {
                 Packet *p = PacketGetFromAlloc();
                 if (p != NULL) {
                     p->flags |= PKT_PSEUDO_STREAM_END;
                     PKT_SET_SRC(p, PKT_SRC_DETECT_RELOAD_FLUSH);
-                    PacketQueue *q = &trans_q[detect_tvs[i]->inq->id];
+                    PacketQueue *q = detect_tvs[i]->inq->pq;
                     SCMutexLock(&q->mutex_q);
                     PacketEnqueue(q, p);
                     SCCondSignal(&q->cond_q);
@@ -1761,37 +1758,10 @@ static void InjectPackets(ThreadVars **detect_tvs,
 static int DetectEngineReloadThreads(DetectEngineCtx *new_de_ctx)
 {
     SCEnter();
-    int i = 0;
-    int no_of_detect_tvs = 0;
-    ThreadVars *tv = NULL;
+    uint32_t i = 0;
 
     /* count detect threads in use */
-    SCMutexLock(&tv_root_lock);
-    tv = tv_root[TVT_PPT];
-    while (tv) {
-        /* obtain the slots for this TV */
-        TmSlot *slots = tv->tm_slots;
-        while (slots != NULL) {
-            TmModule *tm = TmModuleGetById(slots->tm_id);
-
-            if (suricata_ctl_flags != 0) {
-                SCLogInfo("rule reload interupted by engine shutdown");
-                SCMutexUnlock(&tv_root_lock);
-                return -1;
-            }
-
-            if (!(tm->flags & TM_FLAG_DETECT_TM)) {
-                slots = slots->slot_next;
-                continue;
-            }
-            no_of_detect_tvs++;
-            break;
-        }
-
-        tv = tv->next;
-    }
-    SCMutexUnlock(&tv_root_lock);
-
+    uint32_t no_of_detect_tvs = TmThreadCountThreadsByTmmFlags(TM_FLAG_DETECT_TM);
     /* can be zero in unix socket mode */
     if (no_of_detect_tvs == 0) {
         return 0;
@@ -1809,24 +1779,22 @@ static int DetectEngineReloadThreads(DetectEngineCtx *new_de_ctx)
 
     /* get reference to tv's and setup new_det_ctx array */
     SCMutexLock(&tv_root_lock);
-    tv = tv_root[TVT_PPT];
-    while (tv) {
-        /* obtain the slots for this TV */
-        TmSlot *slots = tv->tm_slots;
-        while (slots != NULL) {
-            TmModule *tm = TmModuleGetById(slots->tm_id);
+    for (ThreadVars *tv = tv_root[TVT_PPT]; tv != NULL; tv = tv->next) {
+        if ((tv->tmm_flags & TM_FLAG_DETECT_TM) == 0) {
+            continue;
+        }
+        for (TmSlot *s = tv->tm_slots; s != NULL; s = s->slot_next) {
+            TmModule *tm = TmModuleGetById(s->tm_id);
+            if (!(tm->flags & TM_FLAG_DETECT_TM)) {
+                continue;
+            }
 
             if (suricata_ctl_flags != 0) {
                 SCMutexUnlock(&tv_root_lock);
                 goto error;
             }
 
-            if (!(tm->flags & TM_FLAG_DETECT_TM)) {
-                slots = slots->slot_next;
-                continue;
-            }
-
-            old_det_ctx[i] = FlowWorkerGetDetectCtxPtr(SC_ATOMIC_GET(slots->slot_data));
+            old_det_ctx[i] = FlowWorkerGetDetectCtxPtr(SC_ATOMIC_GET(s->slot_data));
             detect_tvs[i] = tv;
 
             new_det_ctx[i] = DetectEngineThreadCtxInitForReload(tv, new_de_ctx, 1);
@@ -1841,34 +1809,25 @@ static int DetectEngineReloadThreads(DetectEngineCtx *new_de_ctx)
             i++;
             break;
         }
-
-        tv = tv->next;
     }
     BUG_ON(i != no_of_detect_tvs);
 
-    /* atomicly replace the det_ctx data */
+    /* atomically replace the det_ctx data */
     i = 0;
-    tv = tv_root[TVT_PPT];
-    while (tv) {
-        /* find the correct slot */
-        TmSlot *slots = tv->tm_slots;
-        while (slots != NULL) {
-            if (suricata_ctl_flags != 0) {
-                SCMutexUnlock(&tv_root_lock);
-                return -1;
-            }
-
-            TmModule *tm = TmModuleGetById(slots->tm_id);
+    for (ThreadVars *tv = tv_root[TVT_PPT]; tv != NULL; tv = tv->next) {
+        if ((tv->tmm_flags & TM_FLAG_DETECT_TM) == 0) {
+            continue;
+        }
+        for (TmSlot *s = tv->tm_slots; s != NULL; s = s->slot_next) {
+            TmModule *tm = TmModuleGetById(s->tm_id);
             if (!(tm->flags & TM_FLAG_DETECT_TM)) {
-                slots = slots->slot_next;
                 continue;
             }
             SCLogDebug("swapping new det_ctx - %p with older one - %p",
-                       new_det_ctx[i], SC_ATOMIC_GET(slots->slot_data));
-            FlowWorkerReplaceDetectCtx(SC_ATOMIC_GET(slots->slot_data), new_det_ctx[i++]);
+                       new_det_ctx[i], SC_ATOMIC_GET(s->slot_data));
+            FlowWorkerReplaceDetectCtx(SC_ATOMIC_GET(s->slot_data), new_det_ctx[i++]);
             break;
         }
-        tv = tv->next;
     }
     SCMutexUnlock(&tv_root_lock);
 
@@ -1903,25 +1862,14 @@ static int DetectEngineReloadThreads(DetectEngineCtx *new_de_ctx)
      * silently after setting RUNNING_DONE flag and while waiting for
      * THV_DEINIT flag */
     if (i != no_of_detect_tvs) { // not all threads we swapped
-        tv = tv_root[TVT_PPT];
-        while (tv) {
-            /* obtain the slots for this TV */
-            TmSlot *slots = tv->tm_slots;
-            while (slots != NULL) {
-                TmModule *tm = TmModuleGetById(slots->tm_id);
-                if (!(tm->flags & TM_FLAG_DETECT_TM)) {
-                    slots = slots->slot_next;
-                    continue;
-                }
-
-                while (!TmThreadsCheckFlag(tv, THV_RUNNING_DONE)) {
-                    usleep(100);
-                }
-
-                slots = slots->slot_next;
+        for (ThreadVars *tv = tv_root[TVT_PPT]; tv != NULL; tv = tv->next) {
+            if ((tv->tmm_flags & TM_FLAG_DETECT_TM) == 0) {
+                continue;
             }
 
-            tv = tv->next;
+            while (!TmThreadsCheckFlag(tv, THV_RUNNING_DONE)) {
+                usleep(100);
+            }
         }
     }
 
@@ -2148,7 +2096,7 @@ void DetectEngineCtxFree(DetectEngineCtx *de_ctx)
 /** \brief  Function that load DetectEngineCtx config for grouping sigs
  *          used by the engine
  *  \retval 0 if no config provided, 1 if config was provided
- *          and loaded successfuly
+ *          and loaded successfully
  */
 static int DetectEngineCtxLoadConf(DetectEngineCtx *de_ctx)
 {
@@ -2765,7 +2713,7 @@ static TmEcode ThreadCtxDoInit (DetectEngineCtx *de_ctx, DetectEngineThreadCtx *
  *  \param data[out] pointer to store our thread detection ctx
  *
  *  \retval TM_ECODE_OK if all went well
- *  \retval TM_ECODE_FAILED on serious erro
+ *  \retval TM_ECODE_FAILED on serious errors
  */
 TmEcode DetectEngineThreadCtxInit(ThreadVars *tv, void *initdata, void **data)
 {
