@@ -1,4 +1,4 @@
-/* Copyright (C) 2007-2014 Open Information Security Foundation
+/* Copyright (C) 2007-2020 Open Information Security Foundation
  *
  * You can copy, redistribute or modify this Program under the terms of
  * the GNU General Public License version 2 as published by the Free
@@ -39,6 +39,7 @@
 
 #include "suricata.h"
 #include "decode.h"
+#include "feature.h"
 #include "detect.h"
 #include "packet-queue.h"
 #include "threads.h"
@@ -328,21 +329,6 @@ uint8_t print_mem_flag = 1;
 
 void GlobalsInitPreConfig(void)
 {
-    memset(trans_q, 0, sizeof(trans_q));
-
-    /* Initialize the trans_q mutex */
-    int blah;
-    int r = 0;
-    for(blah=0;blah<256;blah++) {
-        r |= SCMutexInit(&trans_q[blah].mutex_q, NULL);
-        r |= SCCondInit(&trans_q[blah].cond_q, NULL);
-   }
-
-    if (r != 0) {
-        SCLogInfo("Trans_Q Mutex not initialized correctly");
-        exit(EXIT_FAILURE);
-    }
-
     TimeInit();
     SupportFastPatternForSigMatchTypes();
     SCThresholdConfGlobalInit();
@@ -378,6 +364,7 @@ static void GlobalsDestroy(SCInstance *suri)
 
     LiveDeviceListClean();
     OutputDeregisterAll();
+    FeatureTrackingRelease();
     TimeDeinit();
     SCProtoNameDeInit();
     if (!suri->disabled_detect) {
@@ -634,6 +621,7 @@ static void PrintUsage(const char *progname)
     printf("\t--init-errors-fatal                  : enable fatal failure on signature init error\n");
     printf("\t--disable-detection                  : disable detection engine\n");
     printf("\t--dump-config                        : show the running configuration\n");
+    printf("\t--dump-features                      : display provided features\n");
     printf("\t--build-info                         : display build information\n");
     printf("\t--pcap[=<dev>]                       : run in pcap mode, no value select interfaces from suricata.yaml\n");
     printf("\t--pcap-file-continuous               : when running in pcap mode with a directory, continue checking directory for pcaps until interrupted\n");
@@ -1434,6 +1422,7 @@ static TmEcode ParseCommandLine(int argc, char** argv, SCInstance *suri)
     int opt;
 
     int dump_config = 0;
+    int dump_features = 0;
     int list_app_layer_protocols = 0;
     int list_unittests = 0;
     int list_runmodes = 0;
@@ -1454,6 +1443,7 @@ static TmEcode ParseCommandLine(int argc, char** argv, SCInstance *suri)
 
     struct option long_opts[] = {
         {"dump-config", 0, &dump_config, 1},
+        {"dump-features", 0, &dump_features, 1},
         {"pfring", optional_argument, 0, 0},
         {"pfring-int", required_argument, 0, 0},
         {"pfring-cluster-id", required_argument, 0, 0},
@@ -2150,6 +2140,8 @@ static TmEcode ParseCommandLine(int argc, char** argv, SCInstance *suri)
         suri->run_mode = RUNMODE_LIST_UNITTEST;
     if (dump_config)
         suri->run_mode = RUNMODE_DUMP_CONFIG;
+    if (dump_features)
+        suri->run_mode = RUNMODE_DUMP_FEATURES;
     if (conf_test)
         suri->run_mode = RUNMODE_CONF_TEST;
     if (engine_analysis)
@@ -2241,8 +2233,10 @@ static int MayDaemonize(SCInstance *suri)
 static int InitSignalHandler(SCInstance *suri)
 {
     /* registering signals we use */
+#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     UtilSignalHandlerSetup(SIGINT, SignalHandlerSigint);
     UtilSignalHandlerSetup(SIGTERM, SignalHandlerSigterm);
+#endif
 #ifndef OS_WIN32
     UtilSignalHandlerSetup(SIGHUP, SignalHandlerSigHup);
     UtilSignalHandlerSetup(SIGPIPE, SIG_IGN);
@@ -2717,7 +2711,7 @@ static void SetupUserMode(SCInstance *suri)
  * This function is meant to contain code that needs
  * to be run once the configuration has been loaded.
  */
-static int PostConfLoadedSetup(SCInstance *suri)
+int PostConfLoadedSetup(SCInstance *suri)
 {
     /* do this as early as possible #1577 #1955 */
 #ifdef HAVE_LUAJIT
@@ -2832,6 +2826,7 @@ static int PostConfLoadedSetup(SCInstance *suri)
         SCReturnInt(TM_ECODE_FAILED);
     }
 
+    FeatureTrackingRegister(); /* must occur prior to output mod registration */
     RegisterAllModules();
 
     AppLayerHtpNeedFileInspection();
@@ -2892,7 +2887,7 @@ static int PostConfLoadedSetup(SCInstance *suri)
     LiveDeviceFinalize();
 
     /* set engine mode if L2 IPS */
-    if (PostDeviceFinalizedSetup(&suricata) != TM_ECODE_OK) {
+    if (PostDeviceFinalizedSetup(suri) != TM_ECODE_OK) {
         exit(EXIT_FAILURE);
     }
 
@@ -2940,11 +2935,15 @@ static void SuricataMainLoop(SCInstance *suri)
     }
 }
 
-int main(int argc, char **argv)
-{
-    SCInstanceInit(&suricata, argv[0]);
+SuricataContext context;
 
-    SuricataContext context;
+/**
+ * \brief Global initialization common to all runmodes.
+ *
+ * This can be used by fuzz targets.
+ */
+
+int InitGlobal(void) {
     context.SCLogMessage = SCLogMessage;
     context.DetectEngineStateFree = DetectEngineStateFree;
     context.AppLayerDecoderEventsSetEventRaw =
@@ -2976,12 +2975,26 @@ int main(int argc, char **argv)
     UtilSignalHandlerSetup(SIGUSR2, SIG_IGN);
     if (UtilSignalBlock(SIGUSR2)) {
         SCLogError(SC_ERR_INITIALIZATION, "SIGUSR2 initialization error");
-        exit(EXIT_FAILURE);
+        return EXIT_FAILURE;
     }
 #endif
 
     ParseSizeInit();
     RunModeRegisterRunModes();
+
+    /* Initialize the configuration module. */
+    ConfInit();
+
+    return 0;
+}
+
+int SuricataMain(int argc, char **argv)
+{
+    SCInstanceInit(&suricata, argv[0]);
+
+    if (InitGlobal() != 0) {
+        exit(EXIT_FAILURE);
+    }
 
 #ifdef OS_WIN32
     /* service initialization */
@@ -2989,9 +3002,6 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 #endif /* OS_WIN32 */
-
-    /* Initialize the configuration module. */
-    ConfInit();
 
     if (ParseCommandLine(argc, argv, &suricata) != TM_ECODE_OK) {
         exit(EXIT_FAILURE);
@@ -3057,6 +3067,9 @@ int main(int argc, char **argv)
         goto out;
     } else if (suricata.run_mode == RUNMODE_CONF_TEST){
         SCLogNotice("Configuration provided was successfully loaded. Exiting.");
+        goto out;
+    } else if (suricata.run_mode == RUNMODE_DUMP_FEATURES) {
+        FeatureDump();
         goto out;
     }
 

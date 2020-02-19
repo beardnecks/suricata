@@ -25,6 +25,7 @@
 #define __TM_QUEUEHANDLERS_H__
 
 enum {
+    TMQH_NOT_SET,
     TMQH_SIMPLE,
     TMQH_PACKETPOOL,
     TMQH_FLOW,
@@ -42,11 +43,13 @@ typedef struct Tmqh_ {
     void (*RegisterTests)(void);
 } Tmqh;
 
-Tmqh tmqh_table[TMQH_SIZE];
+extern Tmqh tmqh_table[TMQH_SIZE];
 
 void TmqhSetup (void);
 void TmqhCleanup(void);
-Tmqh* TmqhGetQueueHandlerByName(const char *name);
+int TmqhNameToID(const char *name);
+Tmqh *TmqhGetQueueHandlerByName(const char *name);
+Tmqh *TmqhGetQueueHandlerByID(const int id);
 
 #endif /* __TM_QUEUEHANDLERS_H__ */
 
