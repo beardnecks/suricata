@@ -26,7 +26,7 @@ phases:
       - cd ${HOME}/rpm
       - ls -la 
       - cd
-      - cd ${HOME}/rpm/bin/suricata
+      - cd ${HOME}/rpm/bin
       - ls -la
   post_build:
     commands:
