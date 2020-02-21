@@ -8,6 +8,7 @@ phases:
       - dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
       - dnf -y install docker-ce --nobest
       - systemctl enable docker
+      - dockerd
       - echo Downloading source code 
       - git clone https://github.com/OISF/libhtp -b 0.5.x
       - |
