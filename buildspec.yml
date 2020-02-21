@@ -28,4 +28,4 @@ phases:
       - docker build -t testimage .
   post_build:
     commands:
-      - echo doing something with docker
+      - echo uploading to ecr

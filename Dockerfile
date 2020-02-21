@@ -1,8 +1,8 @@
-FROM alpine AS build_stage
+FROM alpine:latest AS build_stage
 RUN apk update
 RUN apk add ca-certificates
 RUN apk add \
-                autoconf \
+		autoconf \
                 automake \
                 cargo \
                 diffutils \
@@ -29,8 +29,8 @@ RUN apk add \
                 pcre-dev \
                 pkgconfig \
                 python3-dev \
-		sphinx \
-		py-yaml \
+                sphinx \
+                py-yaml \
                 rust \
                 sudo \
                 which \
@@ -38,10 +38,14 @@ RUN apk add \
 RUN cargo install --force cbindgen
 ENV PATH="/root/.cargo/bin:${PATH}"
 COPY suricata-*.tar.gz ${PWD}
-RUN tar -tf suricata-*.tar.gz
 RUN tar -xvzf suricata-*.tar.gz
 RUN rm suricata-*.tar.gz
+RUN cd suricata-* && ./configure --disable-gccmarch-native --enable-unittests --prefix=/usr --sysconfdir=/etc --localstatedir=/var && make -j${nproc} && make install DESTDIR=/suricata-docker && make install-conf DESTDIR=/suricata-docker
 
-FROM build_stage
-RUN ls -la suricata-*
-RUN cd suricata-* && ls -la && ./configure --disable-gccmarch-native --enable-unittests --prefix=/usr --sysconfdir=/etc --localstatedir=/var && make -j$(nproc) && make install-full
+
+FROM alpine:latest
+RUN apk add rsync libnet-dev nss-dev lz4-dev pcre-dev file-dev libcap-ng-dev jansson-dev libpcap-dev yaml-dev
+WORKDIR /
+COPY --from=build_stage suricata-docker/ /suricata-docker/
+RUN rsync -rv --copy-links suricata-docker/* /
+RUN usr/bin/suricata
