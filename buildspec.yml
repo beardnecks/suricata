@@ -8,6 +8,8 @@ phases:
       - dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
       - dnf -y install docker-ce --nobest
       - systemctl enable docker
+      - nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --storage-driver=overlay2&
+      - timeout 15 sh -c "until docker info; do echo.; sleep 1; done"
       - echo Downloading source code 
       - git clone https://github.com/OISF/libhtp -b 0.5.x
       - |
