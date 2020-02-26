@@ -19,7 +19,9 @@ phases:
     commands:  
       - echo do docker build here
       - docker build -t alpine/suricata:latest .
-      - docker run -t alpine/suricata:latest /usr/bin/suricata -V
+      - echo "$(docker run alpine/suricata:latest /usr/bin/suricata -V | awk '{print $5}' | awk '{$1=$1};1')"
+      - export SURICATA_VERSION="$(docker run alpine/suricata:latest /usr/bin/suricata -V | awk '{print $5}')"
+      - docker tag alpine/suricata:latest "alpine/suricata:${SURICATA_VERSION}" 
   post_build:
     commands:
       - echo uploading to ecr
