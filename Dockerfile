@@ -33,7 +33,7 @@ RUN apk add \
 RUN cargo install --force cbindgen
 ENV PATH="/root/.cargo/bin:${PATH}"
 COPY . .
-RUN ./autogen.sh && ./configure --disable-gccmarch-native --enable-unittests --prefix=/usr --sysconfdir=/etc --localstatedir=/var && make -j${nproc} && make install-conf DESTDIR=/suricata-docker
+RUN ./autogen.sh && ./configure --disable-gccmarch-native --enable-unittests --prefix=/usr --sysconfdir=/etc --localstatedir=/var && make -j${nproc} && make install DESTDIR=/suricata-docker && make install-conf DESTDIR=/suricata-docker
 
 
 FROM alpine:latest
