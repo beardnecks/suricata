@@ -1,0 +1,31 @@
+
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo installing dependencies 
+      - dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+      - dnf -y install docker-ce --nobest
+      - systemctl enable docker
+      - nohup dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --storage-driver=overlay2&
+      - timeout 15 sh -c "until docker info; do echo .; sleep 1; done"
+      - echo Downloading source code 
+      - git clone https://github.com/OISF/libhtp -b 0.5.x
+      - |
+          cd suricata-update
+          curl -L \
+              https://github.com/OISF/suricata-update/archive/master.tar.gz | \
+              tar zxvf - --strip-components=1
+      - cd ..
+      - echo preparing tarball for docker image
+      - ./autogen.sh
+      - ./configure --disable-gccmarch-native --enable-unittests --prefix=/usr --sysconfdir=/etc --localstatedir=/var
+      - make dist
+  build:
+    commands:
+      - echo do docker build here
+      - docker build -t testimage .
+  post_build:
+    commands:
+      - echo uploading to ecr
