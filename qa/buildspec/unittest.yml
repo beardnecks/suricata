@@ -1,9 +1,15 @@
 version: 0.2
 
+
+env:
+  variables:
+    BUILD_CORES: 4
+
+
 phases:
   pre_build:
     commands:
-      - git clone https://github.com/OISF/libhtp -b 0.5.x
+      - git clone --depth 1 https://github.com/OISF/libhtp -b 0.5.x
       - |
           cd suricata-update
           curl -L \
@@ -20,5 +26,9 @@ phases:
               --enable-profiling-locks
   build:
     commands:
-      - make -j4
-      - make -j4 check
+      - make -j${BUILD_CORES}
+      - make -j${BUILD_CORES} check
+
+cache:
+  paths:
+    - $HOME/.cargo
