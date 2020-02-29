@@ -3,13 +3,18 @@ version: 0.2
 
 env:
   variables:
-    BUILD_CORES: 4
+    BUILD_CORES: "4"
+    LIBHTP_BRANCH: "0.5.x"
+    CFLAGS: "-Wall -Wextra -Werror -Wno-unused-parameter -Wno-unused-function"
+    EXTRA_CFLAGS: ""
+    ARGS: "--enable-rust-strict"
 
 
 phases:
   pre_build:
     commands:
-      - git clone --depth 1 https://github.com/OISF/libhtp -b 0.5.x
+      - export CFLAGS="${CFLAGS} ${EXTRA_CFLAGS}"
+      - git clone --depth 1 https://github.com/OISF/libhtp -b ${LIBHTP_BRANCH}
       - |
           cd suricata-update
           curl -L \
@@ -23,12 +28,9 @@ phases:
               --enable-lua \
               --enable-geoip \
               --enable-profiling \
-              --enable-profiling-locks
+              --enable-profiling-locks \
+              ${ARGS}
   build:
     commands:
       - make -j${BUILD_CORES}
       - make -j${BUILD_CORES} check
-
-cache:
-  paths:
-    - $HOME/.cargo
