@@ -43,7 +43,6 @@
 
 #include "alert-fastlog.h"
 #include "alert-prelude.h"
-#include "alert-unified2-alert.h"
 #include "alert-debuglog.h"
 
 #include "log-httplog.h"
@@ -760,6 +759,10 @@ void RunModeInitializeOutputs(void)
                     " use Unified2 instead "
                     "(see https://redmine.openinfosecfoundation.org/issues/353"
                     " for an explanation)");
+            continue;
+        } else if (strncmp(output->val, "unified2-", sizeof("unified2-") - 1) == 0) {
+            SCLogWarning(SC_ERR_NOT_SUPPORTED,
+                    "Unified2 is no longer supported.");
             continue;
         } else if (strcmp(output->val, "alert-prelude") == 0) {
 #ifndef PRELUDE
