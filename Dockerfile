@@ -45,5 +45,4 @@ RUN rsync -rv --copy-links suricata-docker/* /
 RUN rm -r suricata-docker/
 COPY docker-entrypoint.sh /
 RUN chmod +x docker-entrypoint.sh
-RUN ln -s /usr/bin/docker-entrypoint.sh /
 ENTRYPOINT ["docker-entrypoint.sh"]
