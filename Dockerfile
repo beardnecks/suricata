@@ -37,7 +37,7 @@ RUN ./autogen.sh && ./configure --disable-gccmarch-native --enable-unittests --p
 
 
 FROM alpine:latest
-RUN apk add rsync python3 pip3 pyyaml libnet-dev nss-dev lz4-dev pcre-dev file-dev libcap-ng-dev jansson-dev libpcap-dev yaml-dev
+RUN apk add rsync python3 py-yaml libnet-dev nss-dev lz4-dev pcre-dev file-dev libcap-ng-dev jansson-dev libpcap-dev yaml-dev
 WORKDIR /
 COPY --from=build_stage suricata-docker/ /suricata-docker/
 RUN rsync -rv --copy-links suricata-docker/* /
