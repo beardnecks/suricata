@@ -3,8 +3,8 @@
 #TO DO
 
 #set vars and 
-DOCKER_NAME=suricata-dev
-BUCKET_URI=s3://t-joachim-suricata-config/
+DOCKER_NAME="suricata-dev"
+BUCKET_URI="s3://t-joachim-suricataconfig"
 
 
 AWS_REGION="eu-west-1"
