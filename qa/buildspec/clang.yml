@@ -37,4 +37,4 @@ phases:
       - make install
       - make install-conf
       - make install-rules
-      - /usr/local/bin/suricata -u
+      - /usr/local/bin/suricata -u --fatal-unittests
