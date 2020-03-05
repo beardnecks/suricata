@@ -1,7 +1,6 @@
 Suricata
 ========
 
-
 Introduction
 ------------
 
