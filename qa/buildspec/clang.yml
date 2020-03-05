@@ -2,7 +2,7 @@ version: 0.2
 
 env:
   variables:
-    CC: "gcc"
+    CC: "clang"
     BUILD_CORES: "4"
     LIBHTP_BRANCH: "0.5.x"
     CFLAGS: "-Wall -Wextra -Werror -Wno-unused-parameter -Wno-unused-function"
