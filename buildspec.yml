@@ -24,7 +24,7 @@ phases:
     commands:  
       - echo Building docker image
       - docker build -t $REPOSITORY_URI:latest .
-      - export SURICATA_VERSION="$(docker run --entrypoint="" $REPOSITORY_URI:latest /usr/bin/suricata -V | awk '{print $5}')"
+      - export SURICATA_VERSION="$(docker run --entrypoint="/usr/bin/suricata" $REPOSITORY_URI:latest -V | awk '{print $5}')"
       - echo ${SURICATA_VERSION}
       - docker tag $REPOSITORY_URI:latest "$REPOSITORY_URI:${SURICATA_VERSION}" 
   post_build:
