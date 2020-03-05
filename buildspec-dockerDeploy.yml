@@ -7,7 +7,7 @@ phases:
       docker : 18
   pre_build:
     commands:
-    - apt-get install awscli 
+    - apt-get install awscli -y
     - echo Logging in to Amazon ECR...
     - aws --version
     - $(aws ecr get-login --region eu-west-1 --no-include-email)
