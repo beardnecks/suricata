@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/bin/sh
 
 #TO DO
 
-#set env vars
+#set vars and 
 DOCKER_NAME=suricata-dev
 BUCKET_URI=s3://t-joachim-suricata-config/
 
