@@ -7,18 +7,13 @@ env:
     CFLAGS: "-Wall -Wextra -Werror -Wno-unused-parameter -Wno-unused-function"
     EXTRA_CFLAGS: ""
     ARGS: "--enable-rust-strict"
+    ALLOW_FAILURE: "1"
 
 phases:
   pre_build:
     commands:
       - export CFLAGS="${CFLAGS} ${EXTRA_CFLAGS}" && export BUILD_CORES=$(nproc)
       - git clone --depth 1 https://github.com/OISF/libhtp -b ${LIBHTP_BRANCH}
-      - |
-          cd suricata-update
-          curl -L \
-              https://github.com/OISF/suricata-update/archive/master.tar.gz | \
-              tar zxvf - --strip-components=1
-      - cd ..
       - |
         ./autogen.sh
         ./configure --enable-unittests \
@@ -30,5 +25,5 @@ phases:
               ${ARGS}
   build:
     commands:
-      - make -j${BUILD_CORES}
-      - make -j${BUILD_CORES} check
+      - cd rust
+      - cargo clippy; RETURN=$?; if [ $RETURN -gt 0 ] && [ $ALLOW_FAILURE == "1" ]; then echo "Clippy failed with exit code ${RETURN}. You should probably check out the erros!"; elif [ $RETURN -gt 0 ] && [ $ALLOW_FAILURE == "0" ]; then exit $RETURN; fi

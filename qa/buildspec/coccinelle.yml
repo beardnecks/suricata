@@ -21,14 +21,10 @@ phases:
       - cd ..
       - |
         ./autogen.sh
-        ./configure --enable-unittests \
+        ./configure --enable-coccinelle \
               --enable-debug \
-              --enable-lua \
-              --enable-geoip \
-              --enable-profiling \
-              --enable-profiling-locks \
               ${ARGS}
   build:
     commands:
       - make -j${BUILD_CORES}
-      - make -j${BUILD_CORES} check
+      - CONCURRENCY_LEVEL=${BUILD_CORES} make -j${BUILD_CORES} check

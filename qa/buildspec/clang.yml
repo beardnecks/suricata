@@ -2,10 +2,11 @@ version: 0.2
 
 env:
   variables:
+    CC: "clang"
     BUILD_CORES: "4"
     LIBHTP_BRANCH: "0.5.x"
     CFLAGS: "-Wall -Wextra -Werror -Wno-unused-parameter -Wno-unused-function"
-    EXTRA_CFLAGS: ""
+    EXTRA_CFLAGS: "-Wshadow"
     ARGS: "--enable-rust-strict"
 
 phases:
@@ -23,12 +24,14 @@ phases:
         ./autogen.sh
         ./configure --enable-unittests \
               --enable-debug \
-              --enable-lua \
-              --enable-geoip \
-              --enable-profiling \
-              --enable-profiling-locks \
+              --prefix=/usr --sysconfdir=/etc --localstatedir=/var \
               ${ARGS}
   build:
     commands:
       - make -j${BUILD_CORES}
-      - make -j${BUILD_CORES} check
+  post_build:
+    commands:
+      - make install
+      - make install-conf
+      - make install-rules
+      - /usr/bin/suricata -u --fatal-unittests
