@@ -4,5 +4,6 @@ phases:
   build:
     commands:
       - cd rust
-      - cargo clippy --verbose
+      - cargo check
+      - cargo clippy 
       - cargo fmt -- --check
