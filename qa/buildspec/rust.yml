@@ -7,6 +7,7 @@ env:
     CFLAGS: "-Wall -Wextra -Werror -Wno-unused-parameter -Wno-unused-function"
     EXTRA_CFLAGS: ""
     ARGS: "--enable-rust-strict"
+    ALLOW_FAILURE: "1"
 
 phases:
   pre_build:
@@ -25,4 +26,4 @@ phases:
   build:
     commands:
       - cd rust
-      - cargo clippy; if [ $? -gt 0 ]; then echo "Clippy failed with exit code ${?}. You should probably check out the erros!"; fi
+      - cargo clippy; RETURN=$?; if [ $RETURN -gt 0 ] && [ $ALLOW_FAILURE == "1" ]; then echo "Clippy failed with exit code ${RETURN}. You should probably check out the erros!"; elif [ $RETURN -gt 0 ] && [ $ALLOW_FAILURE == "0" ]; then exit $RETURN; fi
