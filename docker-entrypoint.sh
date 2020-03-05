@@ -5,7 +5,7 @@
 #set vars and 
 DOCKER_NAME="suricata-dev"
 BUCKET_URI="s3://t-joachim-suricataconfig"
-
+ARGS="-i eth0"
 
 AWS_REGION="eu-west-1"
 
@@ -29,6 +29,4 @@ echo "Found corresponding configuration file"
 /usr/bin/suricata-update
 
 #### run suricata with surcata.yml default
-suricata -c /etc/suricata/suricata.yaml
-
-
+suricata -c /etc/suricata/suricata.yaml $ARGS $EXTRA_ARGS
