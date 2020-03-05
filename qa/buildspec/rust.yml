@@ -25,7 +25,4 @@ phases:
   build:
     commands:
       - cd rust
-      - cargo clippy 
-  post_build:
-    commands:
-      - CODEBUILD_BUILD_SUCCEEDING=1
+      - cargo clippy; if [ $? -gt 0 ]; then echo "Clippy failed with exit code ${?}. You should probably check out the erros!"; fi
