@@ -32,4 +32,9 @@ phases:
   build:
     commands:
       - make -j${BUILD_CORES}
-      - make -j${BUILD_CORES} check
+  post_build:
+    commands:
+      - make install
+      - make install-conf
+      - make install-rules
+      - /usr/local/bin/suricata -u
