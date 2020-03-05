@@ -24,10 +24,6 @@ phases:
         ./autogen.sh
         ./configure --enable-unittests \
               --enable-debug \
-              --enable-lua \
-              --enable-geoip \
-              --enable-profiling \
-              --enable-profiling-locks \
               ${ARGS}
   build:
     commands:
