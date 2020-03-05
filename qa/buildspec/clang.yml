@@ -24,6 +24,7 @@ phases:
         ./autogen.sh
         ./configure --enable-unittests \
               --enable-debug \
+              --prefix=/usr --sysconfdir=/etc --localstatedir=/var \
               ${ARGS}
   build:
     commands:
@@ -33,4 +34,4 @@ phases:
       - make install
       - make install-conf
       - make install-rules
-      - /usr/local/bin/suricata -u --fatal-unittests
+      - /usr/bin/suricata -u --fatal-unittests
