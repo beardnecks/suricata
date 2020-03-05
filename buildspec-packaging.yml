@@ -1,3 +1,4 @@
+
 version: 0.2
 
 phases:
@@ -18,14 +19,17 @@ phases:
   build:
     commands:
       - echo Running install
-      - make -j4
-      - make install DESTDIR="($pwd)"/rpm
-      - make install-conf DESTDIR="($pwd)"/rpm
+      - echo CPU count $(nproc) 
+      - make -j$(nproc)
+      - make install DESTDIR=${CODEBUILD_SRC_DIR}/rpm
+      - make install-conf DESTDIR=${CODEBUILD_SRC_DIR}/rpm
   post_build:
     commands:
       - echo Packaging application
-      - fpm -s dir -t rpm -n suricata-RC -v 1.000A -C "($pwd)"/rpm/ -p suricata-1.000A_64-1.rpm -d "libnet-devel > 0" -d "nss-devel > 0" usr/ var/ etc/
+      - export SURICATA_VERSION="$(LD_LIBRARY_PATH=${CODEBUILD_SRC_DIR}/rpm/usr/lib64 ${CODEBUILD_SRC_DIR}/rpm/usr/bin/suricata -V | awk '{print $5}' | awk '{$1=$1};1')"
+      - fpm -s dir -t rpm -n suricata -v "${SURICATA_VERSION}" -p "suricata-${SURICATA_VERSION}.rpm" -d "libnet-devel > 0" -d "nss-devel > 0" -C "${CODEBUILD_SRC_DIR}/rpm" usr/ var/ etc/ 
 artifacts:
   files:
-    - 'suricata-1.000A_64-1.rpm'
+    - 'suricata-${SURICATA_VERSION}.rpm'
+
   discard-paths: yes 
