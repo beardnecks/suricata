@@ -1,6 +1,5 @@
 version: 0.2
 
-
 env:
   variables:
     BUILD_CORES: "4"
@@ -9,11 +8,10 @@ env:
     EXTRA_CFLAGS: ""
     ARGS: "--enable-rust-strict"
 
-
 phases:
   pre_build:
     commands:
-      - export CFLAGS="${CFLAGS} ${EXTRA_CFLAGS}"
+      - export CFLAGS="${CFLAGS} ${EXTRA_CFLAGS}" && export BUILD_CORES=$(nproc)
       - git clone --depth 1 https://github.com/OISF/libhtp -b ${LIBHTP_BRANCH}
       - |
           cd suricata-update
