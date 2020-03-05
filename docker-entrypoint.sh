@@ -11,7 +11,7 @@ AWS_REGION="eu-west-1"
 
 # authenticate with aws cli
 aws configure set aws_access_key_id $AWS_KEY
-aws configure set aws_secret_access_key_id $AWS_SECRET_KEY
+aws configure set aws_secret_access_key $AWS_SECRET_KEY
 aws configure set default_region $AWS_REGION
 
 
