@@ -1,32 +1,33 @@
 #!/bin/sh
 
-#TO DO
 
-#set vars and 
-DOCKER_NAME="suricata-dev"
+# set configuration variables here 
+CONFIG_NAME="suricata-dev"
 BUCKET_URI="s3://t-joachim-suricataconfig"
 ARGS="-i eth0"
 
 AWS_REGION="eu-west-1"
 
-# authenticate with aws cli
+# references cli arguments to set credentials 
 aws configure set aws_access_key_id $AWS_KEY
 aws configure set aws_secret_access_key $AWS_SECRET_KEY
 aws configure set default_region $AWS_REGION
 
 
-## get suricata.yml form S3
-aws s3 cp ${BUCKET_URI}/${DOCKER_NAME}.yaml /etc/suricata/suricata.yaml
+## get configuration file form S3
+aws s3 cp ${BUCKET_URI}/${CONFIG_NAME}.yaml /etc/suricata/suricata.yaml
 if [ $? -gt 0 ]
 then    
-	echo "Error! failed to download configuration file $DOCKER_NAME from bucket URI $BUCKET_URI"
+	echo "Error! failed to download configuration file $CONFIG_NAME from bucket URI $BUCKET_URI"
 	exit 1
 fi
 
-echo "Found corresponding configuration file"
+echo "Downloaded configuration file $CONFIG_NAME"
+echo "Updating ruleset..."
 
 ### run suricata update
 /usr/bin/suricata-update
 
+echo "Starting Suricata with configuration file $CONFIG_NAME"
 #### run suricata with surcata.yml default
 suricata -c /etc/suricata/suricata.yaml $ARGS $EXTRA_ARGS
