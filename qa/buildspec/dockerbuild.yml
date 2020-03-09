@@ -1,0 +1,34 @@
+
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      docker: 18
+  pre_build:
+    commands:
+      - echo Downloading source code 
+      - git clone https://github.com/OISF/libhtp -b 0.5.x
+      - |
+          cd suricata-update
+          curl -L \
+              https://github.com/OISF/suricata-update/archive/master.tar.gz | \
+              tar zxvf - --strip-components=1
+      - cd ..
+      - REPOSITORY_URI=389941814333.dkr.ecr.eu-west-1.amazonaws.com/alpine/suricata
+  build:
+    commands:  
+      - echo Building docker image
+      - docker build -t $REPOSITORY_URI:latest .
+      - export SURICATA_VERSION="$(docker run --entrypoint="/usr/bin/suricata" $REPOSITORY_URI:latest -V | awk '{print $5}')"
+      - echo ${SURICATA_VERSION}
+      - docker tag $REPOSITORY_URI:latest "$REPOSITORY_URI:${SURICATA_VERSION}" 
+  post_build:
+    commands: 
+      - echo Storing Docker images in files
+      - docker save --output suricata-docker-save.tar $REPOSITORY_URI:latest "$REPOSITORY_URI:${SURICATA_VERSION}"
+artifacts:
+  files:
+    - 'dockerdeploy.yml'      
+    - 'suricata-docker-save.tar'
+  discard-paths: yes 
