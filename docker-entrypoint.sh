@@ -14,18 +14,58 @@
 
 ################################
 
+#check that environment variables are set
+if [ -Z "$CONFIG_NAME" ]
+then
+	echo "Environment variable CONFIG_NAME is not set! Set it to your desired suricata configuration name e.g. suricata-1.0-dev"
+	exit 1
+fi
+echo Configuration file: $CONFIG_NAME
+
+if [ -Z "$BUCKET_URI" ]
+then
+	echo "Environment variable BUCKET_URI is not set! Set it to your source S3 bucket URI e.g. s3://<bucket name>"
+	exit 1
+fi
+echo Bucket URI: $BUCKET_URI
+
+if [ -Z "$ARGS" ]
+then
+	echo "Arguments for launching suricata is not set! Setting arguments to <-i eth0>"
+	ARGS="-i eth0"
+fi
+echo Suricata arguments: $ARGS
+
+if [ -Z "$AWS_KEY" ]
+then
+	echo "Environment variable AWS_KEY is not set! Set it to your aws_access_key_id"
+	exit 1
+fi
+echo AWS_KEY found
+
+#note! create check for docker secret stored in /run/secrets/
+if [ -Z "$AWS_SECRET_KEY" ]
+then
+	echo "Environment variable AWS_SECRET_KEY is not set! Set it to your aws_secret_access_key"
+fi
+
+if [ -Z "$AWS_REGION" ]
+then
+	echo "Environment variable for AWS_REGION is not set! Setting it to <eu-west-1>"
+	AWS_REGION="eu-west-1"
+fi
+echo Bucket region: $AWS_REGION
+
+
+
 # references cli arguments to set credentials 
 
-#check secrets: if docker secrets blabla...
-
-aws configure set aws_access_key_id $AWS_KEY #env
-aws configure set aws_secret_access_key $AWS_SECRET_KEY #docker secret (stored /run/secrets/)
-aws configure set default_region $AWS_REGION #env
-
-#if docker secret not find then check env then if not found exit "exit code"
+aws configure set aws_access_key_id $AWS_KEY 
+aws configure set aws_secret_access_key $AWS_SECRET_KEY
+aws configure set default_region $AWS_REGION 
 
 
-## get configuration file form S3
+# get configuration file form S3
 aws s3 cp ${BUCKET_URI}/${CONFIG_NAME}.yaml /etc/suricata/suricata.yaml
 if [ $? -gt 0 ]
 then    
@@ -36,9 +76,9 @@ fi
 echo "Downloaded configuration file $CONFIG_NAME"
 echo "Updating ruleset..."
 
-### run suricata update
+# run suricata update
 /usr/bin/suricata-update
 
 echo "Starting Suricata with configuration file $CONFIG_NAME"
-#### run suricata with surcata.yml default
-suricata -c /etc/suricata/suricata.yaml $ARGS $EXTRA_ARGS
+# run suricata with surcata.yml default
+suricata -c /etc/suricata/suricata.yaml $ARGS
