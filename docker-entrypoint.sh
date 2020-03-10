@@ -38,6 +38,7 @@ echo ""
 if [ -z "$AWS_SECRET_KEY" ]
 then
 	echo "Environment variable AWS_SECRET_KEY is not set! Set it to your aws_secret_access_key" >&2
+	exit 1
 fi
 echo AWS_SECRET_KEY found
 echo ""
