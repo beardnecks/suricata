@@ -1,19 +1,6 @@
 #!/bin/sh
 
 
-#throw errors like this (printf '%s\n' "$1" >&2)
-
-################################
-
-#set configuration variables here 
-#	CONFIG_NAME="suricata-dev" #env
-#	BUCKET_URI="s3://t-joachim-suricataconfig" #env
-#	ARGS="-i eth0" #env
-
-#	AWS_REGION="eu-west-1" #env
-
-################################
-
 #check that environment variables are set
 if [ -z "$CONFIG_NAME" ]
 then
@@ -21,6 +8,7 @@ then
 	exit 1
 fi
 echo Configuration file: $CONFIG_NAME
+echo ""
 
 if [ -z "$BUCKET_URI" ]
 then
@@ -28,6 +16,7 @@ then
 	exit 1
 fi
 echo Bucket URI: $BUCKET_URI
+echo ""
 
 if [ -z "$ARGS" ]
 then
@@ -35,6 +24,7 @@ then
 	ARGS="-i eth0"
 fi
 echo Suricata arguments: $ARGS
+echo ""
 
 if [ -z "$AWS_KEY" ]
 then
@@ -42,12 +32,15 @@ then
 	exit 1
 fi
 echo AWS_KEY found
+echo ""
 
 #note! create check for docker secret stored in /run/secrets/
 if [ -z "$AWS_SECRET_KEY" ]
 then
 	echo "Environment variable AWS_SECRET_KEY is not set! Set it to your aws_secret_access_key" >&2
 fi
+echo AWS_SECRET_KEY found
+echo ""
 
 if [ -z "$AWS_REGION" ]
 then
@@ -55,6 +48,7 @@ then
 	AWS_REGION="eu-west-1"
 fi
 echo Bucket region: $AWS_REGION
+echo ""
 
 
 
