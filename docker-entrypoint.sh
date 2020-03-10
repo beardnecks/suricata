@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 
 #throw errors like this (printf '%s\n' "$1" >&2)
@@ -15,28 +15,28 @@
 ################################
 
 #check that environment variables are set
-if [ -Z "$CONFIG_NAME" ]
+if [ -z "$CONFIG_NAME" ]
 then
 	echo "Environment variable CONFIG_NAME is not set! Set it to your desired suricata configuration name e.g. suricata-1.0-dev" >&2
 	exit 1
 fi
 echo Configuration file: $CONFIG_NAME
 
-if [ -Z "$BUCKET_URI" ]
+if [ -z "$BUCKET_URI" ]
 then
 	echo "Environment variable BUCKET_URI is not set! Set it to your source S3 bucket URI e.g. s3://<bucket name>" >&2
 	exit 1
 fi
 echo Bucket URI: $BUCKET_URI
 
-if [ -Z "$ARGS" ]
+if [ -z "$ARGS" ]
 then
 	echo "Arguments for launching suricata is not set! Setting arguments to <-i eth0>" >&2
 	ARGS="-i eth0"
 fi
 echo Suricata arguments: $ARGS
 
-if [ -Z "$AWS_KEY" ]
+if [ -z "$AWS_KEY" ]
 then
 	echo "Environment variable AWS_KEY is not set! Set it to your aws_access_key_id" >&2
 	exit 1
@@ -44,12 +44,12 @@ fi
 echo AWS_KEY found
 
 #note! create check for docker secret stored in /run/secrets/
-if [ -Z "$AWS_SECRET_KEY" ]
+if [ -z "$AWS_SECRET_KEY" ]
 then
 	echo "Environment variable AWS_SECRET_KEY is not set! Set it to your aws_secret_access_key" >&2
 fi
 
-if [ -Z "$AWS_REGION" ]
+if [ -z "$AWS_REGION" ]
 then
 	echo "Environment variable for AWS_REGION is not set! Setting it to <eu-west-1>" >&2
 	AWS_REGION="eu-west-1"
