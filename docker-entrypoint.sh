@@ -40,7 +40,7 @@ echo ""
 
 echo Checking for AWS secret access key...
 #note! create check for docker secret stored in /run/secrets/aws_secret_key
-if [ "$(cat /run/secrets/aws_secret_key)" -gt 0 ]
+if [ -f /run/secrets/aws_secret_key ]
 then
 	echo Using docker secret
 	AWS_SECRET_KEY="$(cat /run/secrets/aws_secret_kecat /run/secrets/aws_secret_key)"
