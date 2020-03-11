@@ -30,6 +30,6 @@ phases:
       - docker save --output suricata-docker-save.tar ${REPOSITORY_URI}:latest "${REPOSITORY_URI}:${SURICATA_VERSION}"
 artifacts:
   files:
-    - 'dockerdeploy.yml'      
+    - 'qa/buildspec/dockerdeploy.yml'      
     - 'suricata-docker-save.tar'
   discard-paths: yes
