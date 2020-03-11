@@ -2,6 +2,7 @@
 
 
 #check that environment variables are set
+echo Checking for configuration file...
 if [ -z "$CONFIG_NAME" ]
 then
 	echo "Environment variable CONFIG_NAME is not set! Set it to your desired suricata configuration name e.g. suricata-1.0-dev" >&2
@@ -10,6 +11,7 @@ fi
 echo Configuration file: $CONFIG_NAME
 echo ""
 
+echo Checking for bucket URI...
 if [ -z "$BUCKET_URI" ]
 then
 	echo "Environment variable BUCKET_URI is not set! Set it to your source S3 bucket URI e.g. s3://<bucket name>" >&2
@@ -18,6 +20,7 @@ fi
 echo Bucket URI: $BUCKET_URI
 echo ""
 
+echo Checking for arguments...
 if [ -z "$ARGS" ]
 then
 	echo "Arguments for launching suricata is not set! Setting arguments to <-i eth0>" >&2
@@ -26,6 +29,7 @@ fi
 echo Suricata arguments: $ARGS
 echo ""
 
+echo Checking for AWS access key id...
 if [ -z "$AWS_KEY" ]
 then
 	echo "Environment variable AWS_KEY is not set! Set it to your aws_access_key_id" >&2
@@ -34,15 +38,25 @@ fi
 echo AWS_KEY found
 echo ""
 
-#note! create check for docker secret stored in /run/secrets/
-if [ -z "$AWS_SECRET_KEY" ]
+echo Checking for AWS secret access key...
+#note! create check for docker secret stored in /run/secrets/aws_secret_key
+if [ "$(cat /run/secrets/aws_secret_key)" -gt 0 ]
 then
-	echo "Environment variable AWS_SECRET_KEY is not set! Set it to your aws_secret_access_key" >&2
-	exit 1
+	echo Using docker secret
+	AWS_SECRET_KEY="$(cat /run/secrets/aws_secret_kecat /run/secrets/aws_secret_key)"
+else
+	if [ -z "$AWS_SECRET_KEY" ]
+        then
+                echo "Environment variable AWS_SECRET_KEY is not set! Set it to your aws_secret_access_key" >&2
+                exit 1
+        fi
+	echo Using environment variable! Alternatively use docker secret!
 fi
+
 echo AWS_SECRET_KEY found
 echo ""
 
+echo Checking for S3 bucket region...
 if [ -z "$AWS_REGION" ]
 then
 	echo "Environment variable for AWS_REGION is not set! Setting it to <eu-west-1>" >&2
