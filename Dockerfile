@@ -34,7 +34,7 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 COPY . .
 RUN ./autogen.sh \
   && ./configure --disable-gccmarch-native \
-  --enable-unittests --prefix=/usr --sysconfdir=/etc --localstatedir=/var \
+  --prefix=/usr --sysconfdir=/etc --localstatedir=/var \
   && make -j${nproc} \
   && make install DESTDIR=/suricata-docker \
   && make install-conf DESTDIR=/suricata-docker

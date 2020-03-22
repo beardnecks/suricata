@@ -15,7 +15,7 @@ phases:
       - echo Generating build files
       - ./autogen.sh
       - echo Configuring the make and make install
-      - ./configure --disable-gccmarch-native --enable-unittests --prefix=/usr --sysconfdir=/etc --localstatedir=/var
+      - ./configure --disable-gccmarch-native --prefix=/usr --sysconfdir=/etc --localstatedir=/var
   build:
     commands:
       - echo Running install
