@@ -48,8 +48,6 @@ pub mod json;
 pub mod applayer;
 pub mod filecontainer;
 pub mod filetracker;
-#[macro_use]
-pub mod parser;
 pub mod kerberos;
 
 #[cfg(feature = "lua")]
@@ -68,5 +66,6 @@ pub mod ntp;
 pub mod tftp;
 pub mod dhcp;
 pub mod sip;
+pub mod rfb;
 pub mod applayertemplate;
 pub mod rdp;

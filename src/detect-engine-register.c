@@ -174,6 +174,7 @@
 #include "detect-tcpmss.h"
 #include "detect-udphdr.h"
 #include "detect-icmpv6hdr.h"
+#include "detect-icmpv6-mtu.h"
 #include "detect-ipv4hdr.h"
 #include "detect-ipv6hdr.h"
 #include "detect-krb5-cname.h"
@@ -187,6 +188,9 @@
 #include "detect-sip-stat-msg.h"
 #include "detect-sip-request-line.h"
 #include "detect-sip-response-line.h"
+#include "detect-rfb-secresult.h"
+#include "detect-rfb-sectype.h"
+#include "detect-rfb-name.h"
 #include "detect-target.h"
 #include "detect-template-rust-buffer.h"
 #include "detect-snmp-version.h"
@@ -547,6 +551,7 @@ void SigTableSetup(void)
     DetectUdphdrRegister();
     DetectTcpmssRegister();
     DetectICMPv6hdrRegister();
+    DetectICMPv6mtuRegister();
     DetectIpv4hdrRegister();
     DetectIpv6hdrRegister();
     DetectKrb5CNameRegister();
@@ -560,6 +565,9 @@ void SigTableSetup(void)
     DetectSipStatMsgRegister();
     DetectSipRequestLineRegister();
     DetectSipResponseLineRegister();
+    DetectRfbSecresultRegister();
+    DetectRfbSectypeRegister();
+    DetectRfbNameRegister();
     DetectTargetRegister();
     DetectTemplateRustBufferRegister();
     DetectSNMPVersionRegister();

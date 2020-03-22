@@ -1,4 +1,4 @@
-/* Copyright (C) 2018 Open Information Security Foundation
+/* Copyright (C) 2018-2020 Open Information Security Foundation
  *
  * You can copy, redistribute or modify this Program under the terms of
  * the GNU General Public License version 2 as published by the Free
@@ -15,13 +15,12 @@
  * 02110-1301, USA.
  */
 
-use crate::applayer;
+use crate::applayer::{self, *};
 use crate::core;
 use crate::core::{ALPROTO_UNKNOWN, AppProto, Flow, IPPROTO_UDP};
 use crate::core::{sc_detect_engine_state_free, sc_app_layer_decoder_events_free_events};
 use crate::dhcp::parser::*;
 use crate::log::*;
-use crate::parser::*;
 use std;
 use std::ffi::{CStr,CString};
 use std::mem::transmute;
@@ -289,13 +288,13 @@ pub extern "C" fn rs_dhcp_parse(_flow: *const core::Flow,
                                 input: *const u8,
                                 input_len: u32,
                                 _data: *const std::os::raw::c_void,
-                                _flags: u8) -> i32 {
+                                _flags: u8) -> AppLayerResult {
     let state = cast_pointer!(state, DHCPState);
     let buf = build_slice!(input, input_len as usize);
     if state.parse(buf) {
-        return 1;
+        return AppLayerResult::ok();
     }
-    return -1;
+    return AppLayerResult::err();
 }
 
 #[no_mangle]

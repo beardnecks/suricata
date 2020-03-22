@@ -1,4 +1,4 @@
-/* Copyright (C) 2007-2013 Open Information Security Foundation
+/* Copyright (C) 2007-2020 Open Information Security Foundation
  *
  * You can copy, redistribute or modify this Program under the terms of
  * the GNU General Public License version 2 as published by the Free
@@ -54,8 +54,6 @@
 #include "app-layer-ssl.h"
 #include "app-layer-ssh.h"
 #include "app-layer-smtp.h"
-#include "app-layer-dns-udp.h"
-#include "app-layer-dns-tcp.h"
 #include "app-layer-modbus.h"
 #include "app-layer-enip.h"
 #include "app-layer-dnp3.h"
@@ -65,9 +63,9 @@
 #include "app-layer-tftp.h"
 #include "app-layer-ikev2.h"
 #include "app-layer-krb5.h"
-#include "app-layer-dhcp.h"
 #include "app-layer-snmp.h"
 #include "app-layer-sip.h"
+#include "app-layer-rfb.h"
 #include "app-layer-template.h"
 #include "app-layer-template-rust.h"
 #include "app-layer-rdp.h"
@@ -81,6 +79,8 @@
 #include "util-validate.h"
 
 #include "runmodes.h"
+
+#include "rust.h"
 
 struct AppLayerParserThreadCtx_ {
     void *alproto_local_storage[FLOW_PROTO_MAX][ALPROTO_MAX];
@@ -1179,6 +1179,9 @@ void AppLayerParserSetTxDetectFlags(uint8_t ipproto, AppProto alproto, void *tx,
 
 /***** General *****/
 
+/** \retval int -1 in case of unrecoverable error. App-layer tracking stops for this flow.
+ *  \retval int 0 ok: we did not update app_progress
+ *  \retval int 1 ok: we updated app_progress */
 int AppLayerParserParse(ThreadVars *tv, AppLayerParserThreadCtx *alp_tctx, Flow *f, AppProto alproto,
                         uint8_t flags, const uint8_t *input, uint32_t input_len)
 {
@@ -1190,6 +1193,8 @@ int AppLayerParserParse(ThreadVars *tv, AppLayerParserThreadCtx *alp_tctx, Flow 
     AppLayerParserProtoCtx *p = &alp_ctx.ctxs[f->protomap][alproto];
     void *alstate = NULL;
     uint64_t p_tx_cnt = 0;
+    uint32_t consumed = input_len;
+    const int direction = (flags & STREAM_TOSERVER) ? 0 : 1;
 
     /* we don't have the parser registered for this protocol */
     if (p->StateAlloc == NULL)
@@ -1234,12 +1239,39 @@ int AppLayerParserParse(ThreadVars *tv, AppLayerParserThreadCtx *alp_tctx, Flow 
     /* invoke the recursive parser, but only on data. We may get empty msgs on EOF */
     if (input_len > 0 || (flags & STREAM_EOF)) {
         /* invoke the parser */
-        if (p->Parser[(flags & STREAM_TOSERVER) ? 0 : 1](f, alstate, pstate,
+        AppLayerResult res = p->Parser[direction](f, alstate, pstate,
                 input, input_len,
                 alp_tctx->alproto_local_storage[f->protomap][alproto],
-                flags) < 0)
+                flags);
+        if (res.status < 0)
         {
             goto error;
+        } else if (res.status > 0) {
+            if (f->proto == IPPROTO_TCP && f->protoctx != NULL) {
+                TcpSession *ssn = f->protoctx;
+                SCLogDebug("direction %d/%s", direction,
+                        (flags & STREAM_TOSERVER) ? "toserver" : "toclient");
+                BUG_ON(res.consumed > input_len);
+                if (direction == 0) {
+                    /* parser told us how much data it needs on top of what it
+                     * consumed. So we need tell stream engine how much we need
+                     * before the next call */
+                    ssn->client.data_required = res.needed;
+                    SCLogDebug("setting data_required %u", ssn->client.data_required);
+                } else {
+                    /* parser told us how much data it needs on top of what it
+                     * consumed. So we need tell stream engine how much we need
+                     * before the next call */
+                    ssn->server.data_required = res.needed;
+                    SCLogDebug("setting data_required %u", ssn->server.data_required);
+                }
+            } else {
+                /* incomplete is only supported for TCP */
+                BUG_ON(f->proto != IPPROTO_TCP);
+            }
+            BUG_ON(res.needed + res.consumed < input_len);
+            BUG_ON(res.needed == 0);
+            consumed = res.consumed;
         }
     }
 
@@ -1256,10 +1288,8 @@ int AppLayerParserParse(ThreadVars *tv, AppLayerParserThreadCtx *alp_tctx, Flow 
                 /* Used only if it's TCP */
                 TcpSession *ssn = f->protoctx;
                 if (ssn != NULL) {
-                    StreamTcpSetSessionNoReassemblyFlag(ssn,
-                            flags & STREAM_TOCLIENT ? 1 : 0);
-                    StreamTcpSetSessionNoReassemblyFlag(ssn,
-                            flags & STREAM_TOSERVER ? 1 : 0);
+                    StreamTcpSetSessionNoReassemblyFlag(ssn, 0);
+                    StreamTcpSetSessionNoReassemblyFlag(ssn, 1);
                 }
             }
             /* Set the bypass flag for both the stream in this TcpSession */
@@ -1298,6 +1328,13 @@ int AppLayerParserParse(ThreadVars *tv, AppLayerParserThreadCtx *alp_tctx, Flow 
         AppLayerParserStreamTruncated(f->proto, alproto, alstate, flags);
 
  end:
+    /* update app progress */
+    if (consumed != input_len && f->proto == IPPROTO_TCP && f->protoctx != NULL) {
+        TcpSession *ssn = f->protoctx;
+        StreamTcpUpdateAppLayerProgress(ssn, direction, consumed);
+        SCReturnInt(1);
+    }
+
     SCReturnInt(0);
  error:
     /* Set the no app layer inspection flag for both
@@ -1535,8 +1572,8 @@ void AppLayerParserRegisterProtocolParsers(void)
     RegisterFTPParsers();
     RegisterSSHParsers();
     RegisterSMTPParsers();
-    RegisterDNSUDPParsers();
-    RegisterDNSTCPParsers();
+    rs_dns_udp_register_parser();
+    rs_dns_tcp_register_parser();
     RegisterModbusParsers();
     RegisterENIPUDPParsers();
     RegisterENIPTCPParsers();
@@ -1547,10 +1584,11 @@ void AppLayerParserRegisterProtocolParsers(void)
     RegisterTFTPParsers();
     RegisterIKEV2Parsers();
     RegisterKRB5Parsers();
-    RegisterDHCPParsers();
+    rs_dhcp_register_parser();
     RegisterSNMPParsers();
     RegisterSIPParsers();
     RegisterTemplateRustParsers();
+    RegisterRFBParsers();
     RegisterTemplateParsers();
     RegisterRdpParsers();
 
@@ -1990,12 +2028,12 @@ typedef struct TestState_ {
  *  \brief  Test parser function to test the memory deallocation of app layer
  *          parser of occurence of an error.
  */
-static int TestProtocolParser(Flow *f, void *test_state, AppLayerParserState *pstate,
+static AppLayerResult TestProtocolParser(Flow *f, void *test_state, AppLayerParserState *pstate,
                               const uint8_t *input, uint32_t input_len,
                               void *local_data, const uint8_t flags)
 {
     SCEnter();
-    SCReturnInt(-1);
+    SCReturnStruct(APP_LAYER_ERROR);
 }
 
 /** \brief Function to allocates the Test protocol state memory

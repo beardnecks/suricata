@@ -1,4 +1,4 @@
-/* Copyright (C) 2017-2018 Open Information Security Foundation
+/* Copyright (C) 2017-2020 Open Information Security Foundation
  *
  * You can copy, redistribute or modify this Program under the terms of
  * the GNU General Public License version 2 as published by the Free
@@ -21,8 +21,7 @@ use crate::ikev2::ipsec_parser::*;
 use crate::ikev2::state::IKEV2ConnectionState;
 use crate::core;
 use crate::core::{AppProto,Flow,ALPROTO_UNKNOWN,ALPROTO_FAILED,STREAM_TOSERVER,STREAM_TOCLIENT};
-use crate::applayer;
-use crate::parser::*;
+use crate::applayer::{self, *};
 use std;
 use std::ffi::{CStr,CString};
 
@@ -470,10 +469,13 @@ pub extern "C" fn rs_ikev2_parse_request(_flow: *const core::Flow,
                                        input: *const u8,
                                        input_len: u32,
                                        _data: *const std::os::raw::c_void,
-                                       _flags: u8) -> i32 {
+                                       _flags: u8) -> AppLayerResult {
     let buf = build_slice!(input,input_len as usize);
     let state = cast_pointer!(state,IKEV2State);
-    state.parse(buf, STREAM_TOSERVER)
+    if state.parse(buf, STREAM_TOSERVER) < 0 {
+        return AppLayerResult::err();
+    }
+    return AppLayerResult::ok();
 }
 
 #[no_mangle]
@@ -483,7 +485,7 @@ pub extern "C" fn rs_ikev2_parse_response(_flow: *const core::Flow,
                                        input: *const u8,
                                        input_len: u32,
                                        _data: *const std::os::raw::c_void,
-                                       _flags: u8) -> i32 {
+                                       _flags: u8) -> AppLayerResult {
     let buf = build_slice!(input,input_len as usize);
     let state = cast_pointer!(state,IKEV2State);
     let res = state.parse(buf, STREAM_TOCLIENT);
@@ -494,7 +496,10 @@ pub extern "C" fn rs_ikev2_parse_response(_flow: *const core::Flow,
                                        APP_LAYER_PARSER_BYPASS_READY)
         };
     }
-    res
+    if res < 0 {
+        return AppLayerResult::err();
+    }
+    return AppLayerResult::ok();
 }
 
 #[no_mangle]

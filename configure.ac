@@ -3,7 +3,7 @@
     AC_CONFIG_HEADERS([config.h])
     AC_CONFIG_SRCDIR([src/suricata.c])
     AC_CONFIG_MACRO_DIR(m4)
-    AM_INIT_AUTOMAKE([tar-ustar])
+    AM_INIT_AUTOMAKE([tar-ustar subdir-objects])
 
     AC_LANG([C])
     AC_PROG_CC_C99
@@ -459,9 +459,49 @@
 
 # options
 
+
+    AC_ARG_ENABLE(fuzztargets,
+        AS_HELP_STRING([--enable-fuzztargets], [Enable fuzz targets]),[enable_fuzztargets=$enableval],[enable_fuzztargets=no])
+    AM_CONDITIONAL([BUILD_FUZZTARGETS], [test "x$enable_fuzztargets" = "xyes"])
+    AC_PROG_CXX
+    AS_IF([test "x$enable_fuzztargets" = "xyes"], [
+        AC_DEFINE([AFLFUZZ_NO_RANDOM], [1], [Disable all use of random functions])
+        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[while (__AFL_LOOP(1000))]])],
+                [AC_DEFINE([AFLFUZZ_PERSISTANT_MODE], [1], [Enable AFL PERSISTANT_MODE])],
+                [])
+        AC_LANG_PUSH(C++)
+        tmp_saved_flags=$[]_AC_LANG_PREFIX[]FLAGS
+        AS_IF([test "x$LIB_FUZZING_ENGINE" = "x"], [
+            LIB_FUZZING_ENGINE=-fsanitize=fuzzer
+            AC_SUBST(LIB_FUZZING_ENGINE)
+        ])
+        _AC_LANG_PREFIX[]FLAGS="$[]_AC_LANG_PREFIX[]FLAGS $LIB_FUZZING_ENGINE"
+        AC_MSG_CHECKING([whether $CXX accepts $LIB_FUZZING_ENGINE])
+        AC_LINK_IFELSE([AC_LANG_SOURCE([[
+#include <sys/types.h>
+extern "C" int LLVMFuzzerTestOneInput(const unsigned char *Data, size_t Size);
+extern "C" int LLVMFuzzerTestOneInput(const unsigned char *Data, size_t Size) {
+(void)Data;
+(void)Size;
+return 0;
+}
+            ]])],
+            [ AC_MSG_RESULT(yes)
+              has_sanitizefuzzer=yes],
+            [ AC_MSG_RESULT(no) ]
+        )
+        _AC_LANG_PREFIX[]FLAGS=$tmp_saved_flags
+        AC_LANG_POP()
+    ])
+
+    AM_CONDITIONAL([HAS_FUZZLDFLAGS], [test "x$has_sanitizefuzzer" = "xyes"])
+
   # enable the running of unit tests
     AC_ARG_ENABLE(unittests,
            AS_HELP_STRING([--enable-unittests], [Enable compilation of the unit tests]),[enable_unittests=$enableval],[enable_unittests=no])
+    AS_IF([test "x$enable_fuzztargets" = "xyes"], [
+        export enable_unittests="yes"
+    ])
     AS_IF([test "x$enable_unittests" = "xyes"], [
         AC_DEFINE([UNITTESTS],[1],[Enable built-in unittests])
     ])
@@ -710,13 +750,10 @@
        AC_MSG_CHECKING(for PCRE JIT support usability)
        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <pcre.h> ]],
            [[
-           const char* regexstr = "(a|b|c|d)";
-           pcre *re;
            const char *error;
-           pcre_extra *extra;
            int err_offset;
-           re = pcre_compile(regexstr,0, &error, &err_offset,NULL);
-           extra = pcre_study(re, PCRE_STUDY_JIT_COMPILE, &error);
+           pcre *re = pcre_compile("(a|b|c|d)",0, &error, &err_offset,NULL);
+           pcre_extra *extra = pcre_study(re, PCRE_STUDY_JIT_COMPILE, &error);
            if (extra == NULL)
                exit(EXIT_FAILURE);
            int jit = 0;
@@ -735,6 +772,39 @@
            exit 1
        else
            AC_MSG_RESULT(yes)
+       fi
+    else
+        AC_MSG_RESULT(no)
+    fi
+
+    if test "x$pcre_jit_works" = "xyes"; then
+
+       AC_MSG_CHECKING(for PCRE JIT EXEC support usability)
+       AC_RUN_IFELSE([AC_LANG_PROGRAM([[
+                          #include <pcre.h>
+                          #include <string.h>
+                          ]],
+           [[
+           const char *error;
+           int err_offset;
+           pcre *re = pcre_compile("(a|b|c|d)", 0, &error, &err_offset,NULL);
+           pcre_extra *study = pcre_study(re, PCRE_STUDY_JIT_COMPILE, &error);
+           if (study == NULL)
+               exit(EXIT_FAILURE);
+           pcre_jit_stack *stack = pcre_jit_stack_alloc(32*1024,40*1024);
+           if (stack == 0)
+               exit(EXIT_FAILURE);
+           int ret = pcre_jit_exec(re, study, "apple", 5, 0, 0, NULL, 0, stack);
+           if (ret != 0)
+               exit(EXIT_FAILURE);
+           exit(EXIT_SUCCESS);
+           ]])],[ pcre_jit_exec_works=yes ],[:]
+       )
+       if test "x$pcre_jit_exec_works" != "xyes"; then
+           AC_MSG_RESULT(no)
+       else
+           AC_MSG_RESULT(yes)
+           AC_DEFINE([PCRE_HAVE_JIT_EXEC], [1], [Pcre with JIT compiler support enabled supporting pcre_jit_exec])
        fi
     else
         AC_MSG_RESULT(no)
@@ -2639,7 +2709,7 @@ AC_SUBST(PACKAGE_VERSION)
 
 AC_CONFIG_FILES(Makefile src/Makefile rust/Makefile rust/Cargo.toml rust/.cargo/config)
 AC_CONFIG_FILES(qa/Makefile qa/coccinelle/Makefile)
-AC_CONFIG_FILES(rules/Makefile doc/Makefile doc/userguide/Makefile)
+AC_CONFIG_FILES(rules/Makefile doc/Makefile doc/userguide/Makefile doc/devguide/Makefile)
 AC_CONFIG_FILES(contrib/Makefile contrib/file_processor/Makefile contrib/file_processor/Action/Makefile contrib/file_processor/Processor/Makefile)
 AC_CONFIG_FILES(suricata.yaml etc/Makefile etc/suricata.logrotate etc/suricata.service)
 AC_CONFIG_FILES(python/Makefile python/suricata/config/defaults.py)

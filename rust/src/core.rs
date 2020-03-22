@@ -23,6 +23,7 @@ use crate::filecontainer::*;
 /// Opaque C types.
 pub enum DetectEngineState {}
 pub enum AppLayerDecoderEvents {}
+pub enum AppLayerParserState {}
 
 // From app-layer-events.h
 pub type AppLayerEventType = std::os::raw::c_int;
@@ -46,6 +47,10 @@ pub static mut ALPROTO_FAILED : AppProto = 0; // updated during init
 
 pub const IPPROTO_TCP : i32 = 6;
 pub const IPPROTO_UDP : i32 = 17;
+
+macro_rules!BIT_U32 {
+    ($x:expr) => (1 << $x);
+}
 
 macro_rules!BIT_U64 {
     ($x:expr) => (1 << $x);
