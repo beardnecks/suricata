@@ -1,16 +1,22 @@
 
 version: 0.2
 
+env:
+  variables:
+    BUILD_CORES: "4"
+    LIBHTP_BRANCH: "0.5.x"
+
 phases:
   pre_build:
     commands:
-      - echo Downloading source code 
-      - git clone --depth 1 https://github.com/OISF/libhtp -b 0.5.x
-      - |
-          cd suricata-update
-          curl -L \
-              https://github.com/OISF/suricata-update/archive/master.tar.gz | \
-              tar zxvf - --strip-components=1
+      - echo Downloading source code
+      - export BUILD_CORES=$(nproc)
+      - git clone --depth 1 https://github.com/OISF/libhtp -b ${LIBHTP_BRANCH}
+        - |
+        cd suricata-update
+        curl -L \
+        https://github.com/OISF/suricata-update/archive/master.tar.gz | \
+        tar zxvf - --strip-components=1
       - cd ..
       - echo Generating build files
       - ./autogen.sh
@@ -19,8 +25,8 @@ phases:
   build:
     commands:
       - echo Running install
-      - echo CPU count $(nproc) 
-      - make -j$(nproc)
+      - echo CPU count ${BUILD_CORES}
+      - make -j${BUILD_CORES}
       - make install DESTDIR=${CODEBUILD_SRC_DIR}/rpm
       - make install-conf DESTDIR=${CODEBUILD_SRC_DIR}/rpm
   post_build:
