@@ -10,55 +10,56 @@ env:
 
 phases:
   install:
-    - yum -y install dnf-plugins-core
-    - yum config-manager --set-enabled PowerTools
-    - |
-      yum -y install \
-            autoconf \
-            automake \
-            clang \
-            diffutils \
-            file-devel \
-            gcc \
-            gcc-c++ \
-            gem \
-            git \
-            jansson-devel \
-            jq \
-            libcap-ng-devel \
-            libevent-devel \
-            libmaxminddb-devel \
-            libnet-devel \
-            libnetfilter_queue-devel \
-            libnfnetlink-devel \
-            libpcap-devel \
-            libtool \
-            libtool \
-            libyaml-devel \
-            lua-devel \
-            lz4-devel \
-            make \
-            nss-devel \
-            pcre-devel \
-            pkgconfig \
-            python3-devel \
-            python3-sphinx \
-            python3-yaml \
-            rpm-build \
-            ruby \
-            ruby-devel \
-            ruby-irb \
-            ruby-libs \
-            rubygems \
-            rust-toolset \
-            sudo \
-            which \
-            zlib-devel \
-    - gem install fpm
-    - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal --default-toolchain stable --component clippy --component rustfmt -y
-    - export PATH="/root/.cargo/bin:${PATH}"
-    - cargo install --force cbindgen
-    - alternatives --set python /usr/bin/python3
+    commands:
+      - yum -y install dnf-plugins-core
+      - yum config-manager --set-enabled PowerTools
+      - |
+          yum -y install \
+              autoconf \
+              automake \
+              clang \
+              diffutils \
+              file-devel \
+              gcc \
+              gcc-c++ \
+              gem \
+              git \
+              jansson-devel \
+              jq \
+              libcap-ng-devel \
+              libevent-devel \
+              libmaxminddb-devel \
+              libnet-devel \
+              libnetfilter_queue-devel \
+              libnfnetlink-devel \
+              libpcap-devel \
+              libtool \
+              libtool \
+              libyaml-devel \
+              lua-devel \
+              lz4-devel \
+              make \
+              nss-devel \
+              pcre-devel \
+              pkgconfig \
+              python3-devel \
+              python3-sphinx \
+              python3-yaml \
+              rpm-build \
+              ruby \
+              ruby-devel \
+              ruby-irb \
+              ruby-libs \
+              rubygems \
+              rust-toolset \
+              sudo \
+              which \
+              zlib-devel \
+      - gem install fpm
+      - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal --default-toolchain stable --component clippy --component rustfmt -y
+      - export PATH="/root/.cargo/bin:${PATH}"
+      - cargo install --force cbindgen
+      - alternatives --set python /usr/bin/python3
   pre_build:
     commands:
       - export CFLAGS="${CFLAGS} ${EXTRA_CFLAGS}" && export BUILD_CORES=$(nproc)
