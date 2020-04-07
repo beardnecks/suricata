@@ -841,13 +841,13 @@ error:
  *
  *  \retval On success returns 1 or on failure returns -1.
  */
-static int HTPHandleRequestData(Flow *f, void *htp_state,
+static AppLayerResult HTPHandleRequestData(Flow *f, void *htp_state,
                                 AppLayerParserState *pstate,
                                 const uint8_t *input, uint32_t input_len,
                                 void *local_data, const uint8_t flags)
 {
     SCEnter();
-    int ret = 1;
+    int ret = 0;
     HtpState *hstate = (HtpState *)htp_state;
 
     /* On the first invocation, create the connection parser structure to
@@ -856,7 +856,7 @@ static int HTPHandleRequestData(Flow *f, void *htp_state,
      */
     if (NULL == hstate->conn) {
         if (Setup(f, hstate) != 0) {
-            goto error;
+            SCReturnStruct(APP_LAYER_ERROR);
         }
     }
     DEBUG_VALIDATE_BUG_ON(hstate->connp == NULL);
@@ -885,10 +885,11 @@ static int HTPHandleRequestData(Flow *f, void *htp_state,
     }
 
     SCLogDebug("hstate->connp %p", hstate->connp);
-    SCReturnInt(ret);
 
-error:
-    SCReturnInt(-1);
+    if (ret < 0) {
+        SCReturnStruct(APP_LAYER_ERROR);
+    }
+    SCReturnStruct(APP_LAYER_OK);
 }
 
 /**
@@ -904,13 +905,13 @@ error:
  *
  *  \retval On success returns 1 or on failure returns -1
  */
-static int HTPHandleResponseData(Flow *f, void *htp_state,
+static AppLayerResult HTPHandleResponseData(Flow *f, void *htp_state,
                                  AppLayerParserState *pstate,
                                  const uint8_t *input, uint32_t input_len,
                                  void *local_data, const uint8_t flags)
 {
     SCEnter();
-    int ret = 1;
+    int ret = 0;
     HtpState *hstate = (HtpState *)htp_state;
 
     /* On the first invocation, create the connection parser structure to
@@ -919,7 +920,7 @@ static int HTPHandleResponseData(Flow *f, void *htp_state,
      */
     if (NULL == hstate->conn) {
         if (Setup(f, hstate) != 0) {
-            goto error;
+            SCReturnStruct(APP_LAYER_ERROR);
         }
     }
     DEBUG_VALIDATE_BUG_ON(hstate->connp == NULL);
@@ -946,9 +947,11 @@ static int HTPHandleResponseData(Flow *f, void *htp_state,
     }
 
     SCLogDebug("hstate->connp %p", hstate->connp);
-    SCReturnInt(ret);
-error:
-    SCReturnInt(-1);
+
+    if (ret < 0) {
+        SCReturnStruct(APP_LAYER_ERROR);
+    }
+    SCReturnStruct(APP_LAYER_OK);
 }
 
 /**

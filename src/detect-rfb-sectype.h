@@ -1,4 +1,4 @@
-/* Copyright (C) 2015 Open Information Security Foundation
+/* Copyright (C) 2020 Open Information Security Foundation
  *
  * You can copy, redistribute or modify this Program under the terms of
  * the GNU General Public License version 2 as published by the Free
@@ -18,29 +18,12 @@
 /**
  * \file
  *
- * \author Jason Ish <jason.ish@oisf.net>
+ * \author Sascha Steinbiss <sascha.steinbiss@dcso.de>
  */
 
-#include "suricata-common.h"
-#include "util-unittest.h"
-#include "app-layer-parser.h"
-#include "app-layer-dhcp.h"
-#include "rust.h"
+#ifndef __DETECT_RFB_SECTYPE_H__
+#define __DETECT_RFB_SECTYPE_H__
 
-void RegisterDHCPParsers(void)
-{
-    rs_dhcp_register_parser();
-#ifdef UNITTESTS
-    AppLayerParserRegisterProtocolUnittests(IPPROTO_TCP, ALPROTO_DHCP,
-        DHCPParserRegisterTests);
-#endif
-}
+void DetectRfbSectypeRegister(void);
 
-#ifdef UNITTESTS
-#endif
-
-void DHCPParserRegisterTests(void)
-{
-#ifdef UNITTESTS
-#endif
-}
+#endif /* __DETECT_RFB_SECTYPE_H__ */

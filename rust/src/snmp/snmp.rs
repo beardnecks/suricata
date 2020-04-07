@@ -1,4 +1,4 @@
-/* Copyright (C) 2017-2019 Open Information Security Foundation
+/* Copyright (C) 2017-2020 Open Information Security Foundation
  *
  * You can copy, redistribute or modify this Program under the terms of
  * the GNU General Public License version 2 as published by the Free
@@ -20,8 +20,7 @@
 use crate::snmp::snmp_parser::*;
 use crate::core;
 use crate::core::{AppProto,Flow,ALPROTO_UNKNOWN,ALPROTO_FAILED,STREAM_TOSERVER,STREAM_TOCLIENT};
-use crate::applayer;
-use crate::parser::*;
+use crate::applayer::{self, *};
 use std;
 use std::ffi::{CStr,CString};
 use std::mem::transmute;
@@ -186,7 +185,7 @@ impl SNMPState {
 
     /// Parse an SNMP request message
     ///
-    /// Returns The number of messages parsed, or -1 on error
+    /// Returns 0 if successful, or -1 on error
     fn parse(&mut self, i: &[u8], direction: u8) -> i32 {
         if self.version == 0 {
             match parse_pdu_enveloppe_version(i) {
@@ -323,10 +322,10 @@ pub extern "C" fn rs_snmp_parse_request(_flow: *const core::Flow,
                                        input: *const u8,
                                        input_len: u32,
                                        _data: *const std::os::raw::c_void,
-                                       _flags: u8) -> i32 {
+                                       _flags: u8) -> AppLayerResult {
     let buf = build_slice!(input,input_len as usize);
     let state = cast_pointer!(state,SNMPState);
-    state.parse(buf, STREAM_TOSERVER)
+    state.parse(buf, STREAM_TOSERVER).into()
 }
 
 #[no_mangle]
@@ -336,10 +335,10 @@ pub extern "C" fn rs_snmp_parse_response(_flow: *const core::Flow,
                                        input: *const u8,
                                        input_len: u32,
                                        _data: *const std::os::raw::c_void,
-                                       _flags: u8) -> i32 {
+                                       _flags: u8) -> AppLayerResult {
     let buf = build_slice!(input,input_len as usize);
     let state = cast_pointer!(state,SNMPState);
-    state.parse(buf, STREAM_TOCLIENT)
+    state.parse(buf, STREAM_TOCLIENT).into()
 }
 
 #[no_mangle]

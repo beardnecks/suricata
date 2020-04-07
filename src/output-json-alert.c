@@ -46,7 +46,6 @@
 #include "detect-metadata.h"
 #include "app-layer-parser.h"
 #include "app-layer-dnp3.h"
-#include "app-layer-dns-common.h"
 #include "app-layer-htp.h"
 #include "app-layer-htp-xff.h"
 #include "app-layer-ftp.h"
@@ -68,6 +67,7 @@
 #include "output-json-smb.h"
 #include "output-json-flow.h"
 #include "output-json-sip.h"
+#include "output-json-rfb.h"
 
 #include "util-byte.h"
 #include "util-privs.h"
@@ -190,7 +190,7 @@ static void AlertJsonDnp3(const Flow *f, const uint64_t tx_id, json_t *js)
 
 static void AlertJsonDns(const Flow *f, const uint64_t tx_id, json_t *js)
 {
-    RSDNSState *dns_state = (RSDNSState *)FlowGetAppState(f);
+    void *dns_state = (void *)FlowGetAppState(f);
     if (dns_state) {
         void *txptr = AppLayerParserGetTx(f->proto, ALPROTO_DNS,
                                           dns_state, tx_id);
@@ -471,6 +471,11 @@ static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
                     hjs = JsonSIPAddMetadata(p->flow, pa->tx_id);
                     if (hjs)
                         json_object_set_new(js, "sip", hjs);
+                    break;
+                case ALPROTO_RFB:
+                    hjs = JsonRFBAddMetadata(p->flow, pa->tx_id);
+                    if (hjs)
+                        json_object_set_new(js, "rfb", hjs);
                     break;
                 case ALPROTO_FTPDATA:
                     hjs = JsonFTPDataAddMetadata(p->flow);

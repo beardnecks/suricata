@@ -121,8 +121,6 @@
 #include "app-layer-parser.h"
 #include "app-layer-htp.h"
 #include "app-layer-ssl.h"
-#include "app-layer-dns-tcp.h"
-#include "app-layer-dns-udp.h"
 #include "app-layer-ssh.h"
 #include "app-layer-ftp.h"
 #include "app-layer-smtp.h"
@@ -132,7 +130,6 @@
 #include "app-layer-smb.h"
 #include "app-layer-dcerpc.h"
 
-#include "util-decode-der.h"
 #include "util-ebpf.h"
 #include "util-radix-tree.h"
 #include "util-host-os-info.h"
@@ -1404,12 +1401,6 @@ static void ParseCommandLineAFL(const char *opt_name, char *opt_arg)
             exit(DecoderParseDataFromFile(opt_arg, DecodeERSPAN));
         else
             exit(DecoderParseDataFromFileSerie(opt_arg, DecodeERSPAN));
-    } else
-#endif
-#ifdef AFLFUZZ_DER
-    if(strcmp(opt_name, "afl-der") == 0) {
-        //printf("arg: //%s\n", opt_arg);
-        exit(DerParseDataFromFile(opt_arg));
     } else
 #endif
     {

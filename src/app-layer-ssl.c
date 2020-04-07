@@ -43,8 +43,6 @@
 #include "conf.h"
 
 #include "util-crypt.h"
-#include "util-decode-der.h"
-#include "util-decode-der-get.h"
 #include "util-spm.h"
 #include "util-unittest.h"
 #include "util-debug.h"
@@ -73,14 +71,40 @@ SCEnumCharMap tls_decoder_event_table[ ] = {
     { "TOO_MANY_RECORDS_IN_PACKET",  TLS_DECODER_EVENT_TOO_MANY_RECORDS_IN_PACKET },
     /* certificate decoding messages */
     { "INVALID_CERTIFICATE",         TLS_DECODER_EVENT_INVALID_CERTIFICATE },
-    { "CERTIFICATE_MISSING_ELEMENT", TLS_DECODER_EVENT_CERTIFICATE_MISSING_ELEMENT },
-    { "CERTIFICATE_UNKNOWN_ELEMENT", TLS_DECODER_EVENT_CERTIFICATE_UNKNOWN_ELEMENT },
     { "CERTIFICATE_INVALID_LENGTH",  TLS_DECODER_EVENT_CERTIFICATE_INVALID_LENGTH },
-    { "CERTIFICATE_INVALID_STRING",  TLS_DECODER_EVENT_CERTIFICATE_INVALID_STRING },
+    { "CERTIFICATE_INVALID_VERSION", TLS_DECODER_EVENT_CERTIFICATE_INVALID_VERSION },
+    { "CERTIFICATE_INVALID_SERIAL",  TLS_DECODER_EVENT_CERTIFICATE_INVALID_SERIAL },
+    { "CERTIFICATE_INVALID_ALGORITHMIDENTIFIER",  TLS_DECODER_EVENT_CERTIFICATE_INVALID_ALGORITHMIDENTIFIER },
+    { "CERTIFICATE_INVALID_X509NAME", TLS_DECODER_EVENT_CERTIFICATE_INVALID_X509NAME },
+    { "CERTIFICATE_INVALID_DATE",    TLS_DECODER_EVENT_CERTIFICATE_INVALID_DATE },
+    { "CERTIFICATE_INVALID_EXTENSIONS", TLS_DECODER_EVENT_CERTIFICATE_INVALID_EXTENSIONS },
+    { "CERTIFICATE_INVALID_DER",     TLS_DECODER_EVENT_CERTIFICATE_INVALID_DER },
+    { "CERTIFICATE_INVALID_SUBJECT", TLS_DECODER_EVENT_CERTIFICATE_INVALID_SUBJECT },
+    { "CERTIFICATE_INVALID_ISSUER",  TLS_DECODER_EVENT_CERTIFICATE_INVALID_ISSUER },
+    { "CERTIFICATE_INVALID_VALIDITY", TLS_DECODER_EVENT_CERTIFICATE_INVALID_VALIDITY },
     { "ERROR_MESSAGE_ENCOUNTERED",   TLS_DECODER_EVENT_ERROR_MSG_ENCOUNTERED },
     /* used as a generic error event */
     { "INVALID_SSL_RECORD",          TLS_DECODER_EVENT_INVALID_SSL_RECORD },
     { NULL,                          -1 },
+};
+
+enum {
+    /* X.509 error codes, returned by decoder
+     * THESE CONSTANTS MUST MATCH rust/src/x509/mod.rs ! */
+    ERR_INVALID_CERTIFICATE=1,
+    ERR_INVALID_LENGTH,
+    ERR_INVALID_VERSION,
+    ERR_INVALID_SERIAL,
+    ERR_INVALID_ALGORITHMIDENTIFIER,
+    ERR_INVALID_X509NAME,
+    ERR_INVALID_DATE,
+    ERR_INVALID_EXTENSIONS,
+    ERR_INVALID_DER,
+
+    /* error getting data */
+    ERR_EXTRACT_SUBJECT,
+    ERR_EXTRACT_ISSUER,
+    ERR_EXTRACT_VALIDITY,
 };
 
 /* JA3 fingerprints are disabled by default */
@@ -357,117 +381,45 @@ void SSLVersionToString(uint16_t version, char *buffer)
 
 static void TlsDecodeHSCertificateErrSetEvent(SSLState *ssl_state, uint32_t err)
 {
-    switch (err) {
-        case ERR_DER_UNKNOWN_ELEMENT:
-            SSLSetEvent(ssl_state,
-                        TLS_DECODER_EVENT_CERTIFICATE_UNKNOWN_ELEMENT);
+    switch(err) {
+        case ERR_EXTRACT_VALIDITY:
+            SSLSetEvent(ssl_state, TLS_DECODER_EVENT_CERTIFICATE_INVALID_VALIDITY);
             break;
-        case ERR_DER_ELEMENT_SIZE_TOO_BIG:
-        case ERR_DER_INVALID_SIZE:
-        case ERR_DER_RECURSION_LIMIT:
-            SSLSetEvent(ssl_state,
-                        TLS_DECODER_EVENT_CERTIFICATE_INVALID_LENGTH);
+        case ERR_EXTRACT_ISSUER:
+            SSLSetEvent(ssl_state, TLS_DECODER_EVENT_CERTIFICATE_INVALID_ISSUER);
             break;
-        case ERR_DER_UNSUPPORTED_STRING:
-            SSLSetEvent(ssl_state,
-                        TLS_DECODER_EVENT_CERTIFICATE_INVALID_STRING);
+        case ERR_EXTRACT_SUBJECT:
+            SSLSetEvent(ssl_state, TLS_DECODER_EVENT_CERTIFICATE_INVALID_SUBJECT);
             break;
-        case ERR_DER_MISSING_ELEMENT:
-            SSLSetEvent(ssl_state,
-                        TLS_DECODER_EVENT_CERTIFICATE_MISSING_ELEMENT);
+        case ERR_INVALID_DER:
+            SSLSetEvent(ssl_state, TLS_DECODER_EVENT_CERTIFICATE_INVALID_DER);
             break;
-        case ERR_DER_INVALID_TAG:
-        case ERR_DER_INVALID_OBJECT:
-        case ERR_DER_GENERIC:
+        case ERR_INVALID_EXTENSIONS:
+            SSLSetEvent(ssl_state, TLS_DECODER_EVENT_CERTIFICATE_INVALID_EXTENSIONS);
+            break;
+        case ERR_INVALID_DATE:
+            SSLSetEvent(ssl_state, TLS_DECODER_EVENT_CERTIFICATE_INVALID_DATE);
+            break;
+        case ERR_INVALID_X509NAME:
+            SSLSetEvent(ssl_state, TLS_DECODER_EVENT_CERTIFICATE_INVALID_X509NAME);
+            break;
+        case ERR_INVALID_ALGORITHMIDENTIFIER:
+            SSLSetEvent(ssl_state, TLS_DECODER_EVENT_CERTIFICATE_INVALID_ALGORITHMIDENTIFIER);
+            break;
+        case ERR_INVALID_SERIAL:
+            SSLSetEvent(ssl_state, TLS_DECODER_EVENT_CERTIFICATE_INVALID_SERIAL);
+            break;
+        case ERR_INVALID_VERSION:
+            SSLSetEvent(ssl_state, TLS_DECODER_EVENT_CERTIFICATE_INVALID_VERSION);
+            break;
+        case ERR_INVALID_LENGTH:
+            SSLSetEvent(ssl_state, TLS_DECODER_EVENT_CERTIFICATE_INVALID_LENGTH);
+            break;
+        case ERR_INVALID_CERTIFICATE:
         default:
             SSLSetEvent(ssl_state, TLS_DECODER_EVENT_INVALID_CERTIFICATE);
             break;
     }
-}
-
-static inline int TlsDecodeHSCertificateSubject(SSLState *ssl_state,
-                                                Asn1Generic *cert)
-{
-    if (unlikely(ssl_state->server_connp.cert0_subject != NULL))
-        return 0;
-
-    uint32_t err = 0;
-    char buffer[512];
-
-    int rc = Asn1DerGetSubjectDN(cert, buffer, sizeof(buffer), &err);
-    if (rc != 0) {
-        TlsDecodeHSCertificateErrSetEvent(ssl_state, err);
-        return 0;
-    }
-
-    ssl_state->server_connp.cert0_subject = SCStrdup(buffer);
-    if (ssl_state->server_connp.cert0_subject == NULL)
-        return -1;
-
-    return 0;
-}
-
-static inline int TlsDecodeHSCertificateIssuer(SSLState *ssl_state,
-                                               Asn1Generic *cert)
-{
-    if (unlikely(ssl_state->server_connp.cert0_issuerdn != NULL))
-        return 0;
-
-    uint32_t err = 0;
-    char buffer[512];
-
-    int rc = Asn1DerGetIssuerDN(cert, buffer, sizeof(buffer), &err);
-    if (rc != 0) {
-        TlsDecodeHSCertificateErrSetEvent(ssl_state, err);
-        return 0;
-    }
-
-    ssl_state->server_connp.cert0_issuerdn = SCStrdup(buffer);
-    if (ssl_state->server_connp.cert0_issuerdn == NULL)
-        return -1;
-
-    return 0;
-}
-
-static inline int TlsDecodeHSCertificateSerial(SSLState *ssl_state,
-                                               Asn1Generic *cert)
-{
-    if (unlikely(ssl_state->server_connp.cert0_serial != NULL))
-        return 0;
-
-    uint32_t err = 0;
-    char buffer[512];
-
-    int rc = Asn1DerGetSerial(cert, buffer, sizeof(buffer), &err);
-    if (rc != 0) {
-        TlsDecodeHSCertificateErrSetEvent(ssl_state, err);
-        return 0;
-    }
-
-    ssl_state->server_connp.cert0_serial = SCStrdup(buffer);
-    if (ssl_state->server_connp.cert0_serial == NULL)
-        return -1;
-
-    return 0;
-}
-
-static inline int TlsDecodeHSCertificateValidity(SSLState *ssl_state,
-                                                 Asn1Generic *cert)
-{
-    uint32_t err = 0;
-    time_t not_before;
-    time_t not_after;
-
-    int rc = Asn1DerGetValidity(cert, &not_before, &not_after, &err);
-    if (rc != 0) {
-        TlsDecodeHSCertificateErrSetEvent(ssl_state, err);
-        return 0;
-    }
-
-    ssl_state->server_connp.cert0_not_before = not_before;
-    ssl_state->server_connp.cert0_not_after = not_after;
-
-    return 0;
 }
 
 static inline int TlsDecodeHSCertificateFingerprint(SSLState *ssl_state,
@@ -514,8 +466,9 @@ static int TlsDecodeHSCertificate(SSLState *ssl_state,
                                   const uint32_t input_len)
 {
     const uint8_t *input = (uint8_t *)initial_input;
+    uint32_t err_code = 0;
 
-    Asn1Generic *cert = NULL;
+    X509 *x509 = NULL;
 
     if (!(HAS_SPACE(3)))
         return 1;
@@ -530,6 +483,8 @@ static int TlsDecodeHSCertificate(SSLState *ssl_state,
     /* coverity[tainted_data] */
     while (processed_len < cert_chain_len)
     {
+        err_code = 0;
+
         if (!(HAS_SPACE(3)))
             goto invalid_cert;
 
@@ -539,40 +494,55 @@ static int TlsDecodeHSCertificate(SSLState *ssl_state,
         if (!(HAS_SPACE(cert_len)))
             goto invalid_cert;
 
-        uint32_t err = 0;
+        // uint32_t err = 0;
         int rc = 0;
 
         /* only store fields from the first certificate in the chain */
         if (processed_len == 0) {
-            /* coverity[tainted_data] */
-            cert = DecodeDer(input, cert_len, &err);
-            if (cert == NULL) {
-                TlsDecodeHSCertificateErrSetEvent(ssl_state, err);
+            char * str;
+            int64_t not_before, not_after;
+
+            x509 = rs_x509_decode(input, cert_len, &err_code);
+            if (x509 == NULL) {
+                TlsDecodeHSCertificateErrSetEvent(ssl_state, err_code);
                 goto next;
             }
 
-            rc = TlsDecodeHSCertificateSubject(ssl_state, cert);
-            if (rc != 0)
+            str = rs_x509_get_subject(x509);
+            if (str == NULL) {
+                err_code = ERR_EXTRACT_SUBJECT;
                 goto error;
+            }
+            ssl_state->server_connp.cert0_subject = str;
 
-            rc = TlsDecodeHSCertificateIssuer(ssl_state, cert);
-            if (rc != 0)
+            str = rs_x509_get_issuer(x509);
+            if (str == NULL) {
+                err_code = ERR_EXTRACT_ISSUER;
                 goto error;
+            }
+            ssl_state->server_connp.cert0_issuerdn = str;
 
-            rc = TlsDecodeHSCertificateSerial(ssl_state, cert);
-            if (rc != 0)
+            str = rs_x509_get_serial(x509);
+            if (str == NULL) {
+                err_code = ERR_INVALID_SERIAL;
                 goto error;
+            }
+            ssl_state->server_connp.cert0_serial = str;
 
-            rc = TlsDecodeHSCertificateValidity(ssl_state, cert);
-            if (rc != 0)
+            rc = rs_x509_get_validity(x509, &not_before, &not_after);
+            if (rc != 0) {
+                err_code = ERR_EXTRACT_VALIDITY;
                 goto error;
+            }
+            ssl_state->server_connp.cert0_not_before = (time_t)not_before;
+            ssl_state->server_connp.cert0_not_after = (time_t)not_after;
+
+            rs_x509_free(x509);
+            x509 = NULL;
 
             rc = TlsDecodeHSCertificateFingerprint(ssl_state, input, cert_len);
             if (rc != 0)
                 goto error;
-
-            DerFree(cert);
-            cert = NULL;
         }
 
         rc = TlsDecodeHSCertificateAddCertToChain(ssl_state, input, cert_len);
@@ -587,8 +557,10 @@ next:
     return (input - initial_input);
 
 error:
-    if (cert != NULL)
-        DerFree(cert);
+    if (err_code != 0)
+        TlsDecodeHSCertificateErrSetEvent(ssl_state, err_code);
+    if (x509 != NULL)
+        rs_x509_free(x509);
     return -1;
 
 invalid_cert:
@@ -2395,7 +2367,7 @@ static int SSLv3Decode(uint8_t direction, SSLState *ssl_state,
  *
  * \retval >=0 On success.
  */
-static int SSLDecode(Flow *f, uint8_t direction, void *alstate, AppLayerParserState *pstate,
+static AppLayerResult SSLDecode(Flow *f, uint8_t direction, void *alstate, AppLayerParserState *pstate,
                      const uint8_t *input, uint32_t ilen)
 {
     SSLState *ssl_state = (SSLState *)alstate;
@@ -2410,9 +2382,9 @@ static int SSLDecode(Flow *f, uint8_t direction, void *alstate, AppLayerParserSt
             AppLayerParserStateIssetFlag(pstate, APP_LAYER_PARSER_EOF)) {
         /* flag session as finished if APP_LAYER_PARSER_EOF is set */
         ssl_state->flags |= SSL_AL_FLAG_STATE_FINISHED;
-        SCReturnInt(1);
+        SCReturnStruct(APP_LAYER_OK);
     } else if (input == NULL || input_len == 0) {
-        SCReturnInt(-1);
+        SCReturnStruct(APP_LAYER_ERROR);
     }
 
     if (direction == 0)
@@ -2434,7 +2406,7 @@ static int SSLDecode(Flow *f, uint8_t direction, void *alstate, AppLayerParserSt
             SSLParserReset(ssl_state);
             SSLSetEvent(ssl_state,
                         TLS_DECODER_EVENT_TOO_MANY_RECORDS_IN_PACKET);
-            return -1;
+            return APP_LAYER_ERROR;
         }
 
         /* ssl_state->bytes_processed is zero for a fresh record or
@@ -2454,7 +2426,7 @@ static int SSLDecode(Flow *f, uint8_t direction, void *alstate, AppLayerParserSt
                         SSLParserReset(ssl_state);
                         SSLSetEvent(ssl_state,
                                 TLS_DECODER_EVENT_INVALID_SSL_RECORD);
-                        return -1;
+                        return APP_LAYER_ERROR;
                     } else {
                         input_len -= retval;
                         input += retval;
@@ -2469,7 +2441,7 @@ static int SSLDecode(Flow *f, uint8_t direction, void *alstate, AppLayerParserSt
                         SSLParserReset(ssl_state);
                         SSLSetEvent(ssl_state,
                                 TLS_DECODER_EVENT_INVALID_SSL_RECORD);
-                        return -1;
+                        return APP_LAYER_ERROR;
                     } else {
                         input_len -= retval;
                         input += retval;
@@ -2495,7 +2467,7 @@ static int SSLDecode(Flow *f, uint8_t direction, void *alstate, AppLayerParserSt
                         SCLogDebug("Error parsing SSLv2.x.  Reseting parser "
                                    "state.  Let's get outta here");
                         SSLParserReset(ssl_state);
-                        return 0;
+                        return APP_LAYER_OK;
                     } else {
                         input_len -= retval;
                         input += retval;
@@ -2509,7 +2481,7 @@ static int SSLDecode(Flow *f, uint8_t direction, void *alstate, AppLayerParserSt
                         SCLogDebug("Error parsing SSLv3.x.  Reseting parser "
                                    "state.  Let's get outta here");
                         SSLParserReset(ssl_state);
-                        return 0;
+                        return APP_LAYER_OK;
                     } else {
                         if (retval > input_len) {
                             SCLogDebug("Error parsing SSLv3.x.  Reseting parser "
@@ -2541,17 +2513,17 @@ static int SSLDecode(Flow *f, uint8_t direction, void *alstate, AppLayerParserSt
     if (AppLayerParserStateIssetFlag(pstate, APP_LAYER_PARSER_EOF))
         ssl_state->flags |= SSL_AL_FLAG_STATE_FINISHED;
 
-    return 1;
+    return APP_LAYER_OK;
 }
 
-static int SSLParseClientRecord(Flow *f, void *alstate, AppLayerParserState *pstate,
+static AppLayerResult SSLParseClientRecord(Flow *f, void *alstate, AppLayerParserState *pstate,
                          const uint8_t *input, uint32_t input_len,
                          void *local_data, const uint8_t flags)
 {
     return SSLDecode(f, 0 /* toserver */, alstate, pstate, input, input_len);
 }
 
-static int SSLParseServerRecord(Flow *f, void *alstate, AppLayerParserState *pstate,
+static AppLayerResult SSLParseServerRecord(Flow *f, void *alstate, AppLayerParserState *pstate,
                          const uint8_t *input, uint32_t input_len,
                          void *local_data, const uint8_t flags)
 {
@@ -2587,11 +2559,11 @@ static void SSLStateFree(void *p)
     if (ssl_state->client_connp.trec)
         SCFree(ssl_state->client_connp.trec);
     if (ssl_state->client_connp.cert0_subject)
-        SCFree(ssl_state->client_connp.cert0_subject);
+        rs_cstring_free(ssl_state->client_connp.cert0_subject);
     if (ssl_state->client_connp.cert0_issuerdn)
-        SCFree(ssl_state->client_connp.cert0_issuerdn);
-    if (ssl_state->server_connp.cert0_serial)
-        SCFree(ssl_state->server_connp.cert0_serial);
+        rs_cstring_free(ssl_state->client_connp.cert0_issuerdn);
+    if (ssl_state->client_connp.cert0_serial)
+        rs_cstring_free(ssl_state->client_connp.cert0_serial);
     if (ssl_state->client_connp.cert0_fingerprint)
         SCFree(ssl_state->client_connp.cert0_fingerprint);
     if (ssl_state->client_connp.sni)
@@ -2602,9 +2574,11 @@ static void SSLStateFree(void *p)
     if (ssl_state->server_connp.trec)
         SCFree(ssl_state->server_connp.trec);
     if (ssl_state->server_connp.cert0_subject)
-        SCFree(ssl_state->server_connp.cert0_subject);
+        rs_cstring_free(ssl_state->server_connp.cert0_subject);
     if (ssl_state->server_connp.cert0_issuerdn)
-        SCFree(ssl_state->server_connp.cert0_issuerdn);
+        rs_cstring_free(ssl_state->server_connp.cert0_issuerdn);
+    if (ssl_state->server_connp.cert0_serial)
+        rs_cstring_free(ssl_state->server_connp.cert0_serial);
     if (ssl_state->server_connp.cert0_fingerprint)
         SCFree(ssl_state->server_connp.cert0_fingerprint);
     if (ssl_state->server_connp.sni)

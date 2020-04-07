@@ -1,4 +1,4 @@
-/* Copyright (C) 2019 Open Information Security Foundation
+/* Copyright (C) 2019-2020 Open Information Security Foundation
  *
  * You can copy, redistribute or modify this Program under the terms of
  * the GNU General Public License version 2 as published by the Free
@@ -19,12 +19,11 @@
 
 extern crate nom;
 
-use crate::applayer;
+use crate::applayer::{self, *};
 use crate::conf;
 use crate::core;
 use crate::core::{sc_detect_engine_state_free, AppProto, Flow, ALPROTO_UNKNOWN};
 use crate::log::*;
-use crate::parser::*;
 use crate::sip::parser::*;
 use std;
 use std::ffi::{CStr, CString};
@@ -358,14 +357,10 @@ pub extern "C" fn rs_sip_parse_request(
     input_len: u32,
     _data: *const std::os::raw::c_void,
     _flags: u8,
-) -> i32 {
+) -> AppLayerResult {
     let buf = build_slice!(input, input_len as usize);
     let state = cast_pointer!(state, SIPState);
-    if state.parse_request(buf) {
-        1
-    } else {
-        -1
-    }
+    state.parse_request(buf).into()
 }
 
 #[no_mangle]
@@ -377,14 +372,10 @@ pub extern "C" fn rs_sip_parse_response(
     input_len: u32,
     _data: *const std::os::raw::c_void,
     _flags: u8,
-) -> i32 {
+) -> AppLayerResult {
     let buf = build_slice!(input, input_len as usize);
     let state = cast_pointer!(state, SIPState);
-    if state.parse_response(buf) {
-        1
-    } else {
-        -1
-    }
+    state.parse_response(buf).into()
 }
 
 const PARSER_NAME: &'static [u8] = b"sip\0";
