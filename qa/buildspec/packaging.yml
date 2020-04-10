@@ -33,7 +33,7 @@ phases:
     commands:
       - echo Packaging application
       - export SURICATA_VERSION="$(LD_LIBRARY_PATH=${CODEBUILD_SRC_DIR}/rpm/usr/lib64 ${CODEBUILD_SRC_DIR}/rpm/usr/bin/suricata -V | awk '{print $5}' | awk '{$1=$1};1')"
-      - fpm -s dir -t rpm -n suricata -v "${SURICATA_VERSION}" -p "suricata-${SURICATA_VERSION}.rpm" -d "libnet-devel > 0" -d "nss-devel > 0" -C "${CODEBUILD_SRC_DIR}/rpm" usr/ var/ etc/ 
+      - fpm -s dir -t rpm -n suricata -v "${SURICATA_VERSION}" -p "suricata-${SURICATA_VERSION}.rpm" -d "libnet-devel > 0" -d "jansson-devel > 0" -d "nss-devel > 0" -C "${CODEBUILD_SRC_DIR}/rpm" usr/ var/ etc/
 artifacts:
   files:
     - 'suricata-${SURICATA_VERSION}.rpm'
