@@ -1,4 +1,4 @@
-/* Copyright (C) 2007-2013 Open Information Security Foundation
+/* Copyright (C) 2007-2020 Open Information Security Foundation
  *
  * You can copy, redistribute or modify this Program under the terms of
  * the GNU General Public License version 2 as published by the Free
@@ -229,10 +229,15 @@ static int DetectThresholdSetup(DetectEngineCtx *de_ctx, Signature *s, const cha
     SigMatch *tmpm = NULL;
 
     /* checks if there is a previous instance of detection_filter */
-    tmpm = DetectGetLastSMFromLists(s, DETECT_DETECTION_FILTER, -1);
+    tmpm = DetectGetLastSMFromLists(s, DETECT_THRESHOLD, DETECT_DETECTION_FILTER, -1);
     if (tmpm != NULL) {
-        SCLogError(SC_ERR_INVALID_SIGNATURE, "\"detection_filter\" and "
-                "\"threshold\" are not allowed in the same rule");
+        if (tmpm->type == DETECT_DETECTION_FILTER) {
+            SCLogError(SC_ERR_INVALID_SIGNATURE, "\"detection_filter\" and "
+                    "\"threshold\" are not allowed in the same rule");
+        } else {
+            SCLogError(SC_ERR_INVALID_SIGNATURE, "multiple \"threshold\" "
+                    "options are not allowed in the same rule");
+        }
         SCReturnInt(-1);
     }
 
@@ -284,7 +289,7 @@ static void DetectThresholdFree(void *de_ptr)
 /**
  * \test ThresholdTestParse01 is a test for a valid threshold options
  *
- *  \retval 1 on succces
+ *  \retval 1 on success
  *  \retval 0 on failure
  */
 static int ThresholdTestParse01(void)
@@ -302,7 +307,7 @@ static int ThresholdTestParse01(void)
 /**
  * \test ThresholdTestParse02 is a test for a invalid threshold options
  *
- *  \retval 1 on succces
+ *  \retval 1 on success
  *  \retval 0 on failure
  */
 static int ThresholdTestParse02(void)
@@ -320,7 +325,7 @@ static int ThresholdTestParse02(void)
 /**
  * \test ThresholdTestParse03 is a test for a valid threshold options in any order
  *
- *  \retval 1 on succces
+ *  \retval 1 on success
  *  \retval 0 on failure
  */
 static int ThresholdTestParse03(void)
@@ -339,7 +344,7 @@ static int ThresholdTestParse03(void)
 /**
  * \test ThresholdTestParse04 is a test for an invalid threshold options in any order
  *
- *  \retval 1 on succces
+ *  \retval 1 on success
  *  \retval 0 on failure
  */
 static int ThresholdTestParse04(void)
@@ -357,7 +362,7 @@ static int ThresholdTestParse04(void)
 /**
  * \test ThresholdTestParse05 is a test for a valid threshold options in any order
  *
- *  \retval 1 on succces
+ *  \retval 1 on success
  *  \retval 0 on failure
  */
 static int ThresholdTestParse05(void)
@@ -378,7 +383,7 @@ static int ThresholdTestParse05(void)
  *       by setting up the signature and later testing its working by matching
  *       the received packet against the sig.
  *
- *  \retval 1 on succces
+ *  \retval 1 on success
  *  \retval 0 on failure
  */
 
@@ -482,7 +487,7 @@ end:
  *       by setting up the signature and later testing its working by matching
  *       the received packet against the sig.
  *
- *  \retval 1 on succces
+ *  \retval 1 on success
  *  \retval 0 on failure
  */
 
@@ -560,7 +565,7 @@ end:
  *       by setting up the signature and later testing its working by matching
  *       the received packet against the sig.
  *
- *  \retval 1 on succces
+ *  \retval 1 on success
  *  \retval 0 on failure
  */
 
@@ -665,7 +670,7 @@ end:
  *       by setting up the signature and later testing its working by matching
  *       the received packet against the sig.
  *
- *  \retval 1 on succces
+ *  \retval 1 on success
  *  \retval 0 on failure
  */
 
@@ -743,7 +748,7 @@ end:
  *       by setting up the signature and later testing its working by matching
  *       the received packet against the sig.
  *
- *  \retval 1 on succces
+ *  \retval 1 on success
  *  \retval 0 on failure
  */
 

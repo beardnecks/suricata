@@ -1,4 +1,4 @@
-/* Copyright (C) 2015 Open Information Security Foundation
+/* Copyright (C) 2020 Open Information Security Foundation
  *
  * You can copy, redistribute or modify this Program under the terms of
  * the GNU General Public License version 2 as published by the Free
@@ -27,7 +27,7 @@
  *
  * \author Victor Julien <victor@inliniac.net>
  *
- * Decodes ERSPAN
+ * Decodes ERSPAN Types I and II
  */
 
 #include "suricata-common.h"
@@ -40,10 +40,38 @@
 #include "util-debug.h"
 
 /**
- * \brief Function to decode ERSPAN packets
+ * \brief Functions to decode ERSPAN Type I and II packets
  */
 
-int DecodeERSPAN(ThreadVars *tv, DecodeThreadVars *dtv, Packet *p, const uint8_t *pkt, uint32_t len, PacketQueue *pq)
+bool g_erspan_typeI_enabled = false;
+
+void DecodeERSPANConfig(void)
+{
+    int enabled = 0;
+    if (ConfGetBool("decoder.erspan.typeI.enabled", &enabled) == 1) {
+        g_erspan_typeI_enabled = (enabled == 1);
+    }
+    SCLogDebug("ERSPAN Type I decode support %s", g_erspan_typeI_enabled ? "enabled" : "disabled");
+}
+
+/**
+ * \brief ERSPAN Type I
+ */
+int DecodeERSPANTypeI(ThreadVars *tv, DecodeThreadVars *dtv, Packet *p,
+                      const uint8_t *pkt, uint32_t len, PacketQueue *pq)
+{
+    if (unlikely(!g_erspan_typeI_enabled))
+        return TM_ECODE_FAILED;
+
+    StatsIncr(tv, dtv->counter_erspan);
+
+    return DecodeEthernet(tv, dtv, p, pkt, len, pq);
+}
+
+/**
+ * \brief ERSPAN Type II
+ */
+int DecodeERSPANTypeII(ThreadVars *tv, DecodeThreadVars *dtv, Packet *p, const uint8_t *pkt, uint32_t len, PacketQueue *pq)
 {
     StatsIncr(tv, dtv->counter_erspan);
 
