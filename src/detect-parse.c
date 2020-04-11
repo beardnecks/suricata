@@ -69,6 +69,9 @@
 #include "detect-engine-iponly.h"
 #include "app-layer-detect-proto.h"
 
+/* Table with all SigMatch registrations */
+SigTableElmt sigmatch_table[DETECT_TBLSIZE];
+
 extern int sc_set_caps;
 
 static void SigMatchTransferSigMatchAcrossLists(SigMatch *sm,
@@ -627,7 +630,7 @@ static int SigParseOptions(DetectEngineCtx *de_ctx, Signature *s, char *optstr, 
 
     /* Call option parsing */
     st = SigTableGet(optname);
-    if (st == NULL) {
+    if (st == NULL || st->Setup == NULL) {
         SCLogError(SC_ERR_RULE_KEYWORD_UNKNOWN, "unknown rule keyword '%s'.", optname);
         goto error;
     }

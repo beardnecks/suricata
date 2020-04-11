@@ -1,4 +1,4 @@
-/* Copyright (C) 2007-2013 Open Information Security Foundation
+/* Copyright (C) 2007-2020 Open Information Security Foundation
  *
  * You can copy, redistribute or modify this Program under the terms of
  * the GNU General Public License version 2 as published by the Free
@@ -162,7 +162,7 @@ typedef struct Address_ {
         (a)->addr_data32[3] = 0; \
     } while (0)
 
-/* Set the IPv6 addressesinto the Addrs of the Packet.
+/* Set the IPv6 addresses into the Addrs of the Packet.
  * Make sure p->ip6h is initialized and validated. */
 #define SET_IPV6_SRC_ADDR(p, a) do {                    \
         (a)->family = AF_INET6;                         \
@@ -387,7 +387,7 @@ typedef struct PktProfiling_ {
 
 #endif /* PROFILING */
 
-/* forward declartion since Packet struct definition requires this */
+/* forward declaration since Packet struct definition requires this */
 struct PacketQueue_;
 
 /* sizes of the members:
@@ -627,7 +627,7 @@ extern int g_default_mtu;
 #define DEFAULT_PACKET_SIZE (DEFAULT_MTU + ETHERNET_HEADER_LEN)
 /* storage: maximum ip packet size + link header */
 #define MAX_PAYLOAD_SIZE (IPV6_HEADER_LEN + 65536 + 28)
-uint32_t default_packet_size;
+extern uint32_t default_packet_size;
 #define SIZE_OF_PACKET (default_packet_size + sizeof(Packet))
 
 typedef struct PacketQueue_ {
@@ -905,7 +905,8 @@ void CaptureStatsSetup(ThreadVars *tv, CaptureStats *s);
 
 enum DecodeTunnelProto {
     DECODE_TUNNEL_ETHERNET,
-    DECODE_TUNNEL_ERSPAN,
+    DECODE_TUNNEL_ERSPANII,
+    DECODE_TUNNEL_ERSPANI,
     DECODE_TUNNEL_VLAN,
     DECODE_TUNNEL_IPV4,
     DECODE_TUNNEL_IPV6,
@@ -958,6 +959,8 @@ int DecodeVLAN(ThreadVars *, DecodeThreadVars *, Packet *, uint8_t *, uint32_t, 
 int DecodeVXLAN(ThreadVars *, DecodeThreadVars *, Packet *, uint8_t *, uint32_t, PacketQueue *);
 int DecodeMPLS(ThreadVars *, DecodeThreadVars *, Packet *, uint8_t *, uint32_t, PacketQueue *);
 int DecodeERSPAN(ThreadVars *, DecodeThreadVars *, Packet *, uint8_t *, uint32_t, PacketQueue *);
+int DecodeERSPANTypeII(ThreadVars *, DecodeThreadVars *, Packet *, uint8_t *, uint32_t, PacketQueue *);
+int DecodeERSPANTypeI(ThreadVars *, DecodeThreadVars *, Packet *, uint8_t *, uint32_t, PacketQueue *);
 int DecodeTEMPLATE(ThreadVars *, DecodeThreadVars *, Packet *, const uint8_t *, uint32_t, PacketQueue *);
 
 #ifdef UNITTESTS
@@ -968,10 +971,10 @@ void DecodeIPV6FragHeader(Packet *p, uint8_t *pkt,
 
 void AddressDebugPrint(Address *);
 
-#ifdef AFLFUZZ_DECODER
 typedef int (*DecoderFunc)(ThreadVars *tv, DecodeThreadVars *dtv, Packet *p,
          uint8_t *pkt, uint32_t len, PacketQueue *pq);
 
+#ifdef AFLFUZZ_DECODER
 int AFLDecodeIPV4(ThreadVars *tv, DecodeThreadVars *dtv, Packet *p,
         uint8_t *pkt, uint32_t len, PacketQueue *pq);
 int AFLDecodeIPV6(ThreadVars *tv, DecodeThreadVars *dtv, Packet *p,
@@ -1105,7 +1108,7 @@ void DecodeUnregisterCounters(void);
 #define PKT_ALLOC                       (1<<3)      /**< Packet was alloc'd this run, needs to be freed */
 #define PKT_HAS_TAG                     (1<<4)      /**< Packet has matched a tag */
 #define PKT_STREAM_ADD                  (1<<5)      /**< Packet payload was added to reassembled stream */
-#define PKT_STREAM_EST                  (1<<6)      /**< Packet is part of establised stream */
+#define PKT_STREAM_EST                  (1<<6)      /**< Packet is part of established stream */
 #define PKT_STREAM_EOF                  (1<<7)      /**< Stream is in eof state */
 #define PKT_HAS_FLOW                    (1<<8)
 #define PKT_PSEUDO_STREAM_END           (1<<9)      /**< Pseudo packet to end the stream */

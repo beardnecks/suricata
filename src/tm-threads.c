@@ -95,6 +95,11 @@ ThreadVars *tv_root[TVT_MAX] = { NULL };
 /* lock to protect tv_root */
 SCMutex tv_root_lock = SCMUTEX_INITIALIZER;
 
+/* queue's between various other threads
+ * XXX move to the TmQueue structure later
+ */
+PacketQueue trans_q[256];
+
 /**
  * \brief Check if a thread flag is set.
  *
@@ -187,6 +192,27 @@ TmEcode TmThreadsSlotVarRun(ThreadVars *tv, Packet *p,
     return TM_ECODE_OK;
 }
 
+/** \internal
+ *  \brief check 'slot' pre_pq and post_pq at thread cleanup
+ *         and dump detailed info about the state of the packets
+ *         and threads if in a unexpected state.
+ */
+static void CheckSlot(const TmSlot *slot)
+{
+    if (slot->slot_pre_pq.len || slot->slot_post_pq.len) {
+        for (Packet *xp = slot->slot_pre_pq.top; xp != NULL; xp = xp->next) {
+            SCLogNotice("pre_pq: slot id %u slot tm_id %u pre_pq.len %u packet src %s",
+                    slot->id, slot->tm_id, slot->slot_pre_pq.len, PktSrcToString(xp->pkt_src));
+        }
+        for (Packet *xp = slot->slot_post_pq.top; xp != NULL; xp = xp->next) {
+            SCLogNotice("post_pq: slot id %u slot tm_id %u post_pq.len %u packet src %s",
+                    slot->id, slot->tm_id, slot->slot_post_pq.len, PktSrcToString(xp->pkt_src));
+        }
+        TmThreadDumpThreads();
+        abort();
+    }
+}
+
 #ifndef AFLFUZZ_PCAP_RUNMODE
 
 /** \internal
@@ -242,27 +268,6 @@ static int TmThreadTimeoutLoop(ThreadVars *tv, TmSlot *s)
     StatsSyncCounters(tv);
 
     return r;
-}
-
-/** \internal
- *  \brief check 'slot' pre_pq and post_pq at thread cleanup
- *         and dump detailed info about the state of the packets
- *         and threads if in a unexpected state.
- */
-static void CheckSlot(const TmSlot *slot)
-{
-    if (slot->slot_pre_pq.len || slot->slot_post_pq.len) {
-        for (Packet *xp = slot->slot_pre_pq.top; xp != NULL; xp = xp->next) {
-            SCLogNotice("pre_pq: slot id %u slot tm_id %u pre_pq.len %u packet src %s",
-                    slot->id, slot->tm_id, slot->slot_pre_pq.len, PktSrcToString(xp->pkt_src));
-        }
-        for (Packet *xp = slot->slot_post_pq.top; xp != NULL; xp = xp->next) {
-            SCLogNotice("post_pq: slot id %u slot tm_id %u post_pq.len %u packet src %s",
-                    slot->id, slot->tm_id, slot->slot_post_pq.len, PktSrcToString(xp->pkt_src));
-        }
-        TmThreadDumpThreads();
-        abort();
-    }
 }
 
 /*
@@ -2295,7 +2300,10 @@ typedef struct Thread_ {
     int type;
     int in_use;         /**< bool to indicate this is in use */
 
-    struct timeval ts;  /**< current time of this thread (offline mode) */
+    struct timeval pktts;   /**< current packet time of this thread
+                             *   (offline mode) */
+    uint32_t sys_sec_stamp; /**< timestamp in seconds of the real system
+                             *   time when the pktts was last updated. */
 } Thread;
 
 typedef struct Threads_ {
@@ -2412,6 +2420,7 @@ end:
     SCMutexUnlock(&thread_store_lock);
 }
 
+#define COPY_TIMESTAMP(src,dst) ((dst)->tv_sec = (src)->tv_sec, (dst)->tv_usec = (src)->tv_usec) // XXX unify with flow-util.h
 void TmThreadsSetThreadTimestamp(const int id, const struct timeval *ts)
 {
     SCMutexLock(&thread_store_lock);
@@ -2422,33 +2431,72 @@ void TmThreadsSetThreadTimestamp(const int id, const struct timeval *ts)
 
     int idx = id - 1;
     Thread *t = &thread_store.threads[idx];
-    t->ts.tv_sec = ts->tv_sec;
-    t->ts.tv_usec = ts->tv_usec;
+    COPY_TIMESTAMP(ts, &t->pktts);
+    struct timeval systs;
+    gettimeofday(&systs, NULL);
+    t->sys_sec_stamp = (uint32_t)systs.tv_sec;
     SCMutexUnlock(&thread_store_lock);
 }
 
-#define COPY_TIMESTAMP(src,dst) ((dst)->tv_sec = (src)->tv_sec, (dst)->tv_usec = (src)->tv_usec) // XXX unify with flow-util.h
-void TmreadsGetMinimalTimestamp(struct timeval *ts)
+bool TmThreadsTimeSubsysIsReady(void)
+{
+    bool ready = true;
+    SCMutexLock(&thread_store_lock);
+    for (size_t s = 0; s < thread_store.threads_size; s++) {
+        Thread *t = &thread_store.threads[s];
+        if (!t->in_use)
+            break;
+        if (t->sys_sec_stamp == 0) {
+            ready = false;
+            break;
+        }
+    }
+    SCMutexUnlock(&thread_store_lock);
+    return ready;
+}
+
+void TmThreadsInitThreadsTimestamp(const struct timeval *ts)
+{
+    struct timeval systs;
+    gettimeofday(&systs, NULL);
+    SCMutexLock(&thread_store_lock);
+    for (size_t s = 0; s < thread_store.threads_size; s++) {
+        Thread *t = &thread_store.threads[s];
+        if (!t->in_use)
+            break;
+        COPY_TIMESTAMP(ts, &t->pktts);
+        t->sys_sec_stamp = (uint32_t)systs.tv_sec;
+    }
+    SCMutexUnlock(&thread_store_lock);
+}
+
+void TmThreadsGetMinimalTimestamp(struct timeval *ts)
 {
     struct timeval local, nullts;
     memset(&local, 0, sizeof(local));
     memset(&nullts, 0, sizeof(nullts));
     int set = 0;
     size_t s;
+    struct timeval systs;
+    gettimeofday(&systs, NULL);
 
     SCMutexLock(&thread_store_lock);
     for (s = 0; s < thread_store.threads_size; s++) {
         Thread *t = &thread_store.threads[s];
-        if (t == NULL || t->in_use == 0)
-            continue;
-        if (!(timercmp(&t->ts, &nullts, ==))) {
+        if (t->in_use == 0)
+            break;
+        if (!(timercmp(&t->pktts, &nullts, ==))) {
+            /* ignore sleeping threads */
+            if (t->sys_sec_stamp + 1 < (uint32_t)systs.tv_sec)
+                continue;
+
             if (!set) {
-                local.tv_sec = t->ts.tv_sec;
-                local.tv_usec = t->ts.tv_usec;
+                local.tv_sec = t->pktts.tv_sec;
+                local.tv_usec = t->pktts.tv_usec;
                 set = 1;
             } else {
-                if (timercmp(&t->ts, &local, <)) {
-                    COPY_TIMESTAMP(&t->ts, &local);
+                if (timercmp(&t->pktts, &local, <)) {
+                    COPY_TIMESTAMP(&t->pktts, &local);
                 }
             }
         }
