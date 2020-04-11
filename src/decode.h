@@ -74,6 +74,7 @@ enum PktSrcEnum {
 
 #include "decode-erspan.h"
 #include "decode-ethernet.h"
+#include "decode-chdlc.h"
 #include "decode-gre.h"
 #include "decode-ppp.h"
 #include "decode-pppoe.h"
@@ -633,6 +634,7 @@ typedef struct DecodeThreadVars_
     uint16_t counter_invalid;
 
     uint16_t counter_eth;
+    uint16_t counter_chdlc;
     uint16_t counter_ipv4;
     uint16_t counter_ipv6;
     uint16_t counter_tcp;
@@ -930,10 +932,12 @@ int DecodeUDP(ThreadVars *, DecodeThreadVars *, Packet *, const uint8_t *, uint1
 int DecodeSCTP(ThreadVars *, DecodeThreadVars *, Packet *, const uint8_t *, uint16_t);
 int DecodeGRE(ThreadVars *, DecodeThreadVars *, Packet *, const uint8_t *, uint32_t);
 int DecodeVLAN(ThreadVars *, DecodeThreadVars *, Packet *, const uint8_t *, uint32_t);
+int DecodeIEEE8021ah(ThreadVars *, DecodeThreadVars *, Packet *, const uint8_t *, uint32_t);
 int DecodeVXLAN(ThreadVars *, DecodeThreadVars *, Packet *, const uint8_t *, uint32_t);
 int DecodeMPLS(ThreadVars *, DecodeThreadVars *, Packet *, const uint8_t *, uint32_t);
 int DecodeERSPAN(ThreadVars *, DecodeThreadVars *, Packet *, const uint8_t *, uint32_t);
 int DecodeERSPANTypeI(ThreadVars *, DecodeThreadVars *, Packet *, const uint8_t *, uint32_t);
+int DecodeCHDLC(ThreadVars *, DecodeThreadVars *, Packet *, const uint8_t *, uint32_t);
 int DecodeTEMPLATE(ThreadVars *, DecodeThreadVars *, Packet *, const uint8_t *, uint32_t);
 
 #ifdef UNITTESTS
@@ -946,14 +950,6 @@ void AddressDebugPrint(Address *);
 
 typedef int (*DecoderFunc)(ThreadVars *tv, DecodeThreadVars *dtv, Packet *p,
          const uint8_t *pkt, uint32_t len);
-#ifdef AFLFUZZ_DECODER
-int AFLDecodeIPV4(ThreadVars *tv, DecodeThreadVars *dtv, Packet *p,
-        const uint8_t *pkt, uint32_t len);
-int AFLDecodeIPV6(ThreadVars *tv, DecodeThreadVars *dtv, Packet *p,
-        const uint8_t *pkt, uint32_t len);
-int DecoderParseDataFromFile(char *filename, DecoderFunc Decoder);
-int DecoderParseDataFromFileSerie(char *fileprefix, DecoderFunc Decoder);
-#endif
 void DecodeGlobalConfig(void);
 void DecodeUnregisterCounters(void);
 
@@ -1046,6 +1042,10 @@ void DecodeUnregisterCounters(void);
 #define DLT_EN10MB 1
 #endif
 
+#ifndef DLT_C_HDLC
+#define DLT_C_HDLC 104
+#endif
+
 /* taken from pcap's bpf.h */
 #ifndef DLT_RAW
 #ifdef __OpenBSD__
@@ -1071,6 +1071,7 @@ void DecodeUnregisterCounters(void);
 #define LINKTYPE_RAW2        101
 #define LINKTYPE_IPV4        228
 #define LINKTYPE_GRE_OVER_IP 778
+#define LINKTYPE_CISCO_HDLC  DLT_C_HDLC
 #define PPP_OVER_GRE         11
 #define VLAN_OVER_GRE        13
 
@@ -1157,5 +1158,89 @@ static inline bool VerdictTunnelPacket(Packet *p)
     return verdict;
 }
 
-#endif /* __DECODE_H__ */
+static inline void DecodeLinkLayer(ThreadVars *tv, DecodeThreadVars *dtv,
+        const int datalink, Packet *p, const uint8_t *data, const uint32_t len)
+{
+    /* call the decoder */
+    switch (datalink) {
+        case LINKTYPE_ETHERNET:
+            DecodeEthernet(tv, dtv, p, data, len);
+            break;
+        case LINKTYPE_LINUX_SLL:
+            DecodeSll(tv, dtv, p, data, len);
+            break;
+        case LINKTYPE_PPP:
+            DecodePPP(tv, dtv, p, data, len);
+            break;
+        case LINKTYPE_RAW:
+        case LINKTYPE_GRE_OVER_IP:
+            DecodeRaw(tv, dtv, p, data, len);
+            break;
+        case LINKTYPE_NULL:
+            DecodeNull(tv, dtv, p, data, len);
+            break;
+       case LINKTYPE_CISCO_HDLC:
+            DecodeCHDLC(tv, dtv, p, data, len);
+            break;
+        default:
+            SCLogError(SC_ERR_DATALINK_UNIMPLEMENTED, "datalink type "
+                    "%"PRId32" not yet supported", datalink);
+            break;
+    }
+}
 
+/** \brief decode network layer
+ *  \retval bool true if successful, false if unknown */
+static inline bool DecodeNetworkLayer(ThreadVars *tv, DecodeThreadVars *dtv,
+        const uint16_t proto, Packet *p, const uint8_t *data, const uint32_t len)
+{
+    switch (proto) {
+        case ETHERNET_TYPE_IP: {
+            uint16_t ip_len = (len < USHRT_MAX) ? (uint16_t)len : (uint16_t)USHRT_MAX;
+            DecodeIPV4(tv, dtv, p, data, ip_len);
+            break;
+        }
+        case ETHERNET_TYPE_IPV6: {
+            uint16_t ip_len = (len < USHRT_MAX) ? (uint16_t)len : (uint16_t)USHRT_MAX;
+            DecodeIPV6(tv, dtv, p, data, ip_len);
+            break;
+        }
+        case ETHERNET_TYPE_PPPOE_SESS:
+            DecodePPPOESession(tv, dtv, p, data, len);
+            break;
+        case ETHERNET_TYPE_PPPOE_DISC:
+            DecodePPPOEDiscovery(tv, dtv, p, data, len);
+            break;
+        case ETHERNET_TYPE_VLAN:
+        case ETHERNET_TYPE_8021AD:
+        case ETHERNET_TYPE_8021QINQ:
+            if (p->vlan_idx >= 2) {
+                ENGINE_SET_EVENT(p,VLAN_HEADER_TOO_MANY_LAYERS);
+            } else {
+                DecodeVLAN(tv, dtv, p, data, len);
+            }
+            break;
+        case ETHERNET_TYPE_8021AH:
+            DecodeIEEE8021ah(tv, dtv, p, data, len);
+            break;
+        case ETHERNET_TYPE_ARP:
+            break;
+        case ETHERNET_TYPE_MPLS_UNICAST:
+        case ETHERNET_TYPE_MPLS_MULTICAST:
+            DecodeMPLS(tv, dtv, p, data, len);
+            break;
+        case ETHERNET_TYPE_DCE:
+            if (unlikely(len < ETHERNET_DCE_HEADER_LEN)) {
+                ENGINE_SET_INVALID_EVENT(p, DCE_PKT_TOO_SMALL);
+            } else {
+                DecodeEthernet(tv, dtv, p, data, len);
+            }
+            break;
+        default:
+            SCLogDebug("unknown ether type: %" PRIx16 "", proto);
+            return false;
+    }
+    return true;
+}
+
+#endif /* __DECODE_H__ */

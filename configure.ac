@@ -329,29 +329,6 @@
     esac
     AC_MSG_RESULT(ok)
 
-    # enable modifications for AFL fuzzing
-    AC_ARG_ENABLE(afl,
-           AS_HELP_STRING([--enable-afl], Enable AFL fuzzing logic[])], [enable_afl="$enableval"],[enable_afl=no])
-
-    AS_IF([test "x$enable_afl" = "xyes"], [
-        AC_DEFINE([AFLFUZZ_NO_RANDOM], [1], [Disable all use of random functions])
-        AC_DEFINE([AFLFUZZ_DISABLE_MGTTHREADS], [1], [Disable all management threads])
-        AC_DEFINE([AFLFUZZ_PCAP_RUNMODE], [1], [Enable special AFL 'single' runmode])
-        AC_DEFINE([AFLFUZZ_CONF_TEST], [1], [Enable special --afl-parse-rules commandline option])
-        AC_DEFINE([AFLFUZZ_APPLAYER], [1], [Enable --afl-$proto-request commandline option])
-        AC_DEFINE([AFLFUZZ_MIME], [1], [Enable --afl-mime commandline option])
-        AC_DEFINE([AFLFUZZ_DECODER], [1], [Enable --afl-decoder-$proto commandline option])
-        AC_DEFINE([AFLFUZZ_RULES], [1], [Enable --afl-rules commandline option])
-
-        # test for AFL PERSISTANT_MODE support
-        CFLAGS_ORIG=$CFLAGS
-        CFLAGS="-Werror"
-        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[while (__AFL_LOOP(1000))]])],
-                [AC_DEFINE([AFLFUZZ_PERSISTANT_MODE], [1], [Enable AFL PERSISTANT_MODE])],
-                [])
-        CFLAGS=$CFLAGS_ORIG
-    ])
-
   # disable TLS on user request
     AC_ARG_ENABLE(threading-tls,
            AS_HELP_STRING([--disable-threading-tls], [Disable TLS (thread local storage)]), [enable_tls="$enableval"],[enable_tls=yes])
@@ -464,10 +441,14 @@
     AM_CONDITIONAL([BUILD_FUZZTARGETS], [test "x$enable_fuzztargets" = "xyes"])
     AC_PROG_CXX
     AS_IF([test "x$enable_fuzztargets" = "xyes"], [
+        AC_DEFINE([FUZZ], [1], [Fuzz targets are enabled])
         AC_DEFINE([AFLFUZZ_NO_RANDOM], [1], [Disable all use of random functions])
+        CFLAGS_ORIG=$CFLAGS
+        CFLAGS="-Werror"
         AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[while (__AFL_LOOP(1000))]])],
                 [AC_DEFINE([AFLFUZZ_PERSISTANT_MODE], [1], [Enable AFL PERSISTANT_MODE])],
                 [])
+        CFLAGS=$CFLAGS_ORIG
         AC_LANG_PUSH(C++)
         tmp_saved_flags=$[]_AC_LANG_PREFIX[]FLAGS
         AS_IF([test "x$LIB_FUZZING_ENGINE" = "x"], [
@@ -498,9 +479,6 @@ return 0;
   # enable the running of unit tests
     AC_ARG_ENABLE(unittests,
            AS_HELP_STRING([--enable-unittests], [Enable compilation of the unit tests]),[enable_unittests=$enableval],[enable_unittests=no])
-    AS_IF([test "x$enable_fuzztargets" = "xyes"], [
-        export enable_unittests="yes"
-    ])
     AS_IF([test "x$enable_unittests" = "xyes"], [
         AC_DEFINE([UNITTESTS],[1],[Enable built-in unittests])
     ])
@@ -1898,6 +1876,7 @@ return 0;
             echo "   Fedora: dnf install nspr-devel"
             echo "   CentOS/RHEL: yum install nspr-devel"
             echo
+            enable_nspr="no"
         fi
     fi
 
@@ -1950,6 +1929,7 @@ return 0;
             echo "   Fedora: dnf install nss-devel"
             echo "   CentOS/RHEL: yum install nss-devel"
             echo
+            enable_nss="no"
         fi
     fi
 

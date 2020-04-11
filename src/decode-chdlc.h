@@ -1,4 +1,4 @@
-/* Copyright (C) 2012-2020 Open Information Security Foundation
+/* Copyright (C) 2020 Open Information Security Foundation
  *
  * You can copy, redistribute or modify this Program under the terms of
  * the GNU General Public License version 2 as published by the Free
@@ -15,12 +15,23 @@
  * 02110-1301, USA.
  */
 
-#ifndef __DECODE_TEREDO_H__
-#define __DECODE_TEREDO_H__
+/**
+ * \file
+ *
+ * \author Victor Julien <victor@inliniac.net>
+ */
 
-int DecodeTeredo(ThreadVars *tv, DecodeThreadVars *dtv, Packet *p,
-                 const uint8_t *pkt, uint16_t len);
-void DecodeTeredoConfig(void);
-bool DecodeTeredoEnabledForPort(const uint16_t sp, const uint16_t dp);
+#ifndef __DECODE_CHDLC_H__
+#define __DECODE_CHDLC_H__
 
-#endif
+#define CHDLC_HEADER_LEN           4
+
+typedef struct CHDLCHdr_ {
+    uint8_t address;
+    uint8_t control;
+    uint16_t protocol;
+} CHDLCHdr;
+
+void DecodeCHDLCRegisterTests(void);
+
+#endif /* __DECODE_CHDLC_H__ */

@@ -694,7 +694,7 @@ static int SigParseOptions(DetectEngineCtx *de_ctx, Signature *s, char *optstr, 
 
     /* Call option parsing */
     st = SigTableGet(optname);
-    if (st == NULL) {
+    if (st == NULL || st->Setup == NULL) {
         SCLogError(SC_ERR_RULE_KEYWORD_UNKNOWN, "unknown rule keyword '%s'.", optname);
         goto error;
     }
@@ -1275,7 +1275,7 @@ Signature *SigAlloc (void)
 
     sig->init_data->smlists_tail = SCCalloc(sig->init_data->smlists_array_size, sizeof(SigMatch *));
     if (sig->init_data->smlists_tail == NULL) {
-        SCFree(sig->init_data->smlists_tail);
+        SCFree(sig->init_data->smlists);
         SCFree(sig->init_data);
         SCFree(sig);
         return NULL;
@@ -2354,8 +2354,14 @@ Signature *DetectEngineAppendSig(DetectEngineCtx *de_ctx, const char *sigstr)
     return (dup_sig == 0 || dup_sig == 2) ? sig : NULL;
 
 error:
-    if (sig != NULL)
+    /* free the 2nd sig bidir may have set up */
+    if (sig != NULL && sig->next != NULL) {
+        SigFree(sig->next);
+        sig->next = NULL;
+    }
+    if (sig != NULL) {
         SigFree(sig);
+    }
     return NULL;
 }
 
@@ -2443,49 +2449,6 @@ void DetectSetupParseRegexes(const char *parse_str, DetectParseRegex *detect_par
     return;
 }
 
-#ifdef AFLFUZZ_RULES
-#include "util-reference-config.h"
-int RuleParseDataFromFile(char *filename)
-{
-    char buffer[65536];
-
-    SigTableSetup();
-    SCReferenceConfInit();
-    SCClassConfInit();
-
-    DetectEngineCtx *de_ctx = DetectEngineCtxInit();
-    if (de_ctx == NULL)
-        return 0;
-
-#ifdef AFLFUZZ_PERSISTANT_MODE
-    while (__AFL_LOOP(10000)) {
-        /* reset state */
-        memset(buffer, 0, sizeof(buffer));
-#endif /* AFLFUZZ_PERSISTANT_MODE */
-
-        FILE *fp = fopen(filename, "r");
-        BUG_ON(fp == NULL);
-
-        size_t result = fread(&buffer, 1, sizeof(buffer), fp);
-        if (result < sizeof(buffer)) {
-            buffer[result] = '\0';
-            Signature *s = SigInit(de_ctx, buffer);
-            if (s != NULL) {
-                SigFree(s);
-            }
-        }
-        fclose(fp);
-
-#ifdef AFLFUZZ_PERSISTANT_MODE
-    }
-#endif /* AFLFUZZ_PERSISTANT_MODE */
-
-    DetectEngineCtxFree(de_ctx);
-    SCClassConfDeinit();
-    SCReferenceConfDeinit();
-    return 0;
-}
-#endif /* AFLFUZZ_RULES */
 
 /*
  * TESTS

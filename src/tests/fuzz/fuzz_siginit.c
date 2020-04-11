@@ -13,6 +13,7 @@
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size);
 
+static uint32_t cnt = 0;
 DetectEngineCtx *de_ctx = NULL;
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
@@ -28,7 +29,17 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
         SigTableSetup();
         SCReferenceConfInit();
         SCClassConfInit();
+    }
+    if (cnt++ == 1024) {
+        DetectEngineCtxFree(de_ctx);
+        de_ctx = NULL;
+        cnt = 0;
+    }
+    if (de_ctx == NULL) {
         de_ctx = DetectEngineCtxInit();
+        BUG_ON(de_ctx == NULL);
+        de_ctx->flags |= DE_QUIET;
+        de_ctx->rule_file = (char *)"fuzzer";
     }
 
     char * buffer = malloc(size+1);
@@ -38,6 +49,10 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
         buffer[size] = 0;
         Signature *s = SigInit(de_ctx, buffer);
         free(buffer);
+        if (s && s->next) {
+            SigFree(s->next);
+            s->next = NULL;
+        }
         SigFree(s);
     }
 

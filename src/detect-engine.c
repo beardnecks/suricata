@@ -986,13 +986,21 @@ int DetectBufferGetActiveList(DetectEngineCtx *de_ctx, Signature *s)
 {
     BUG_ON(s->init_data == NULL);
 
-    if (s->init_data->list && s->init_data->transform_cnt) {
+    if (s->init_data->transform_cnt) {
+        if (s->init_data->list == DETECT_SM_LIST_NOTSET ||
+            s->init_data->list < DETECT_SM_LIST_DYNAMIC_START) {
+            SCLogError(SC_ERR_INVALID_SIGNATURE, "previous transforms not consumed "
+                    "(list: %u, transform_cnt %u)", s->init_data->list,
+                    s->init_data->transform_cnt);
+            SCReturnInt(-1);
+        }
+
         SCLogDebug("buffer %d has transform(s) registered: %d",
                 s->init_data->list, s->init_data->transforms[0]);
         int new_list = DetectBufferTypeGetByIdTransforms(de_ctx, s->init_data->list,
                 s->init_data->transforms, s->init_data->transform_cnt);
         if (new_list == -1) {
-            return -1;
+            SCReturnInt(-1);
         }
         SCLogDebug("new_list %d", new_list);
         s->init_data->list = new_list;
@@ -1001,7 +1009,7 @@ int DetectBufferGetActiveList(DetectEngineCtx *de_ctx, Signature *s)
         s->init_data->transform_cnt = 0;
     }
 
-    return 0;
+    SCReturnInt(0);
 }
 
 void InspectionBufferClean(DetectEngineThreadCtx *det_ctx)
@@ -2225,7 +2233,7 @@ static int DetectEngineCtxLoadConf(DetectEngineCtx *de_ctx)
                 }
             }
             if (max_uniq_toclient_groups_str != NULL) {
-                if (ByteExtractStringUint16(&de_ctx->max_uniq_toclient_groups, 10,
+                if (StringParseUint16(&de_ctx->max_uniq_toclient_groups, 10,
                     strlen(max_uniq_toclient_groups_str),
                     (const char *)max_uniq_toclient_groups_str) <= 0)
                 {
@@ -2242,7 +2250,7 @@ static int DetectEngineCtxLoadConf(DetectEngineCtx *de_ctx)
             SCLogConfig("toclient-groups %u", de_ctx->max_uniq_toclient_groups);
 
             if (max_uniq_toserver_groups_str != NULL) {
-                if (ByteExtractStringUint16(&de_ctx->max_uniq_toserver_groups, 10,
+                if (StringParseUint16(&de_ctx->max_uniq_toserver_groups, 10,
                     strlen(max_uniq_toserver_groups_str),
                     (const char *)max_uniq_toserver_groups_str) <= 0)
                 {
@@ -3381,8 +3389,8 @@ static int DetectEngineMultiTenantSetupLoadLivedevMappings(const ConfNode *mappi
                 goto bad_mapping;
 
             uint32_t tenant_id = 0;
-            if (ByteExtractStringUint32(&tenant_id, 10, strlen(tenant_id_node->val),
-                        tenant_id_node->val) == -1)
+            if (StringParseUint32(&tenant_id, 10, strlen(tenant_id_node->val),
+                        tenant_id_node->val) < 0)
             {
                 SCLogError(SC_ERR_INVALID_ARGUMENT, "tenant-id  "
                         "of %s is invalid", tenant_id_node->val);
@@ -3441,8 +3449,8 @@ static int DetectEngineMultiTenantSetupLoadVlanMappings(const ConfNode *mappings
                 goto bad_mapping;
 
             uint32_t tenant_id = 0;
-            if (ByteExtractStringUint32(&tenant_id, 10, strlen(tenant_id_node->val),
-                        tenant_id_node->val) == -1)
+            if (StringParseUint32(&tenant_id, 10, strlen(tenant_id_node->val),
+                        tenant_id_node->val) < 0)
             {
                 SCLogError(SC_ERR_INVALID_ARGUMENT, "tenant-id  "
                         "of %s is invalid", tenant_id_node->val);
@@ -3450,8 +3458,8 @@ static int DetectEngineMultiTenantSetupLoadVlanMappings(const ConfNode *mappings
             }
 
             uint16_t vlan_id = 0;
-            if (ByteExtractStringUint16(&vlan_id, 10, strlen(vlan_id_node->val),
-                        vlan_id_node->val) == -1)
+            if (StringParseUint16(&vlan_id, 10, strlen(vlan_id_node->val),
+                        vlan_id_node->val) < 0)
             {
                 SCLogError(SC_ERR_INVALID_ARGUMENT, "vlan-id  "
                         "of %s is invalid", vlan_id_node->val);
@@ -3597,8 +3605,8 @@ int DetectEngineMultiTenantSetup(void)
                 }
 
                 uint32_t tenant_id = 0;
-                if (ByteExtractStringUint32(&tenant_id, 10, strlen(id_node->val),
-                            id_node->val) == -1)
+                if (StringParseUint32(&tenant_id, 10, strlen(id_node->val),
+                            id_node->val) < 0)
                 {
                     SCLogError(SC_ERR_INVALID_ARGUMENT, "tenant_id  "
                             "of %s is invalid", id_node->val);

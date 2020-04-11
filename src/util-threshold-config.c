@@ -38,6 +38,7 @@
 #include "detect.h"
 #include "detect-engine.h"
 #include "detect-engine-address.h"
+#include "detect-engine-threshold.h"
 #include "detect-threshold.h"
 #include "detect-parse.h"
 
@@ -453,7 +454,6 @@ static int SetupThresholdRule(DetectEngineCtx *de_ctx, uint32_t id, uint32_t gid
     Signature *s = NULL;
     SigMatch *sm = NULL;
     DetectThresholdData *de = NULL;
-    void *ptmp;
 
     BUG_ON(parsed_type == TYPE_SUPPRESS);
 
@@ -505,17 +505,7 @@ static int SetupThresholdRule(DetectEngineCtx *de_ctx, uint32_t id, uint32_t gid
             sm->ctx = (void *)de;
 
             if (parsed_track == TRACK_RULE) {
-                ptmp = SCRealloc(de_ctx->ths_ctx.th_entry, (de_ctx->ths_ctx.th_size + 1) * sizeof(DetectThresholdEntry *));
-                if (ptmp == NULL) {
-                    SCFree(de_ctx->ths_ctx.th_entry);
-                    de_ctx->ths_ctx.th_entry = NULL;
-                    SCLogError(SC_ERR_MEM_ALLOC, "Error allocating memory for threshold config"
-                    " (tried to allocate %"PRIu32"th_entrys for rule tracking with rate_filter)", de_ctx->ths_ctx.th_size + 1);
-                } else {
-                    de_ctx->ths_ctx.th_entry = ptmp;
-                    de_ctx->ths_ctx.th_entry[de_ctx->ths_ctx.th_size] = NULL;
-                    de_ctx->ths_ctx.th_size++;
-                }
+                ThresholdHashRealloc(de_ctx);
             }
             SigMatchAppendSMToList(s, sm, DETECT_SM_LIST_THRESHOLD);
         }
@@ -558,17 +548,7 @@ static int SetupThresholdRule(DetectEngineCtx *de_ctx, uint32_t id, uint32_t gid
                 sm->ctx = (void *)de;
 
                 if (parsed_track == TRACK_RULE) {
-                    ptmp = SCRealloc(de_ctx->ths_ctx.th_entry, (de_ctx->ths_ctx.th_size + 1) * sizeof(DetectThresholdEntry *));
-                    if (ptmp == NULL) {
-                        SCFree(de_ctx->ths_ctx.th_entry);
-                        de_ctx->ths_ctx.th_entry = NULL;
-                        SCLogError(SC_ERR_MEM_ALLOC, "Error allocating memory for threshold config"
-                        " (tried to allocate %"PRIu32"th_entrys for rule tracking with rate_filter)", de_ctx->ths_ctx.th_size + 1);
-                    } else {
-                        de_ctx->ths_ctx.th_entry = ptmp;
-                        de_ctx->ths_ctx.th_entry[de_ctx->ths_ctx.th_size] = NULL;
-                        de_ctx->ths_ctx.th_size++;
-                    }
+                    ThresholdHashRealloc(de_ctx);
                 }
                 SigMatchAppendSMToList(s, sm, DETECT_SM_LIST_THRESHOLD);
             }
@@ -642,17 +622,7 @@ static int SetupThresholdRule(DetectEngineCtx *de_ctx, uint32_t id, uint32_t gid
             sm->ctx = (void *)de;
 
             if (parsed_track == TRACK_RULE) {
-                 ptmp = SCRealloc(de_ctx->ths_ctx.th_entry, (de_ctx->ths_ctx.th_size + 1) * sizeof(DetectThresholdEntry *));
-                if (ptmp == NULL) {
-                    SCFree(de_ctx->ths_ctx.th_entry);
-                    de_ctx->ths_ctx.th_entry = NULL;
-                    SCLogError(SC_ERR_MEM_ALLOC, "Error allocating memory for threshold config"
-                    " (tried to allocate %"PRIu32"th_entrys for rule tracking with rate_filter)", de_ctx->ths_ctx.th_size + 1);
-                } else {
-                    de_ctx->ths_ctx.th_entry = ptmp;
-                    de_ctx->ths_ctx.th_entry[de_ctx->ths_ctx.th_size] = NULL;
-                    de_ctx->ths_ctx.th_size++;
-                }
+                ThresholdHashRealloc(de_ctx);
             }
 
             SigMatchAppendSMToList(s, sm, DETECT_SM_LIST_THRESHOLD);
@@ -875,7 +845,7 @@ static int ParseThresholdRule(DetectEngineCtx *de_ctx, char *rawstr,
 
                 /* TODO: implement option "apply_to" */
 
-                if (ByteExtractStringUint32(&parsed_timeout, 10, strlen(th_timeout), th_timeout) <= 0) {
+                if (StringParseUint32(&parsed_timeout, 10, strlen(th_timeout), th_timeout) <= 0) {
                     goto error;
                 }
 
@@ -923,7 +893,7 @@ static int ParseThresholdRule(DetectEngineCtx *de_ctx, char *rawstr,
                 goto error;
             }
 
-            if (ByteExtractStringUint32(&parsed_count, 10, strlen(th_count), th_count) <= 0) {
+            if (StringParseUint32(&parsed_count, 10, strlen(th_count), th_count) <= 0) {
                 goto error;
             }
             if (parsed_count == 0) {
@@ -931,7 +901,7 @@ static int ParseThresholdRule(DetectEngineCtx *de_ctx, char *rawstr,
                 goto error;
             }
 
-            if (ByteExtractStringUint32(&parsed_seconds, 10, strlen(th_seconds), th_seconds) <= 0) {
+            if (StringParseUint32(&parsed_seconds, 10, strlen(th_seconds), th_seconds) <= 0) {
                 goto error;
             }
 
@@ -954,11 +924,11 @@ static int ParseThresholdRule(DetectEngineCtx *de_ctx, char *rawstr,
             break;
     }
 
-    if (ByteExtractStringUint32(&id, 10, strlen(th_sid), th_sid) <= 0) {
+    if (StringParseUint32(&id, 10, strlen(th_sid), th_sid) <= 0) {
         goto error;
     }
 
-    if (ByteExtractStringUint32(&gid, 10, strlen(th_gid), th_gid) <= 0) {
+    if (StringParseUint32(&gid, 10, strlen(th_gid), th_gid) <= 0) {
         goto error;
     }
 
