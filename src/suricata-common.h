@@ -125,6 +125,19 @@
 #include <sched.h>     /* for sched_setaffinity(2) */
 #endif
 
+#ifdef HAVE_TYPE_U_LONG_NOT_DEFINED
+typedef unsigned long int u_long
+#endif
+#ifdef HAVE_TYPE_U_INT_NOT_DEFINED
+typedef unsigned int u_int
+#endif
+#ifdef HAVE_TYPE_U_SHORT_NOT_DEFINED
+typedef unsigned short u_short
+#endif
+#ifdef HAVE_TYPE_U_CHAR_NOT_DEFINED
+typedef unsigned char u_char
+#endif
+
 #include <pcre.h>
 
 #ifdef HAVE_SYSLOG_H
@@ -156,10 +169,6 @@
 #include <signal.h>
 #endif
 
-#if HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
-
 #if HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
@@ -186,24 +195,6 @@
 
 #if HAVE_NETDB_H
 #include <netdb.h>
-#endif
-
-#ifndef SC_PCAP_DONT_INCLUDE_PCAP_H
-#ifdef HAVE_PCAP_H
-#include <pcap.h>
-#endif
-
-#ifdef HAVE_PCAP_PCAP_H
-#include <pcap/pcap.h>
-#endif
-#endif
-
-#ifdef HAVE_UTIME_H
-#include <utime.h>
-#endif
-
-#ifdef HAVE_LIBGEN_H
-#include <libgen.h>
 #endif
 
 #if __CYGWIN__
@@ -234,6 +225,32 @@
 
 #ifdef HAVE_W32API_WTYPES_H
 #include <w32api/wtypes.h>
+#endif
+
+#ifndef SC_PCAP_DONT_INCLUDE_PCAP_H
+#ifdef HAVE_PCAP_H
+#include <pcap.h>
+#endif
+
+#ifdef HAVE_PCAP_PCAP_H
+#include <pcap/pcap.h>
+#endif
+#endif
+
+#ifdef HAVE_UTIME_H
+#include <utime.h>
+#endif
+
+#ifdef HAVE_LIBGEN_H
+#include <libgen.h>
+#endif
+
+#ifdef HAVE_GRP_H
+#include <grp.h>
+#endif
+
+#ifdef HAVE_PWD_H
+#include <pwd.h>
 #endif
 
 #include <jansson.h>
@@ -370,6 +387,12 @@
 #define BIT_U64(n) (1ULL << (n))
 
 #define WARN_UNUSED __attribute__((warn_unused_result))
+
+#if defined(__GNUC__)
+#define ATTR_FMT_PRINTF(x, y) __attribute__((format(printf, (x), (y))))
+#else
+#define ATTR_FMT_PRINTF(x, y)
+#endif
 
 #define SCNtohl(x) (uint32_t)ntohl((x))
 #define SCNtohs(x) (uint16_t)ntohs((x))

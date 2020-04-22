@@ -313,20 +313,6 @@ static void SignalHandlerSigHup(/*@unused@*/ int sig)
 }
 #endif
 
-#ifdef DBG_MEM_ALLOC
-#ifndef _GLOBAL_MEM_
-#define _GLOBAL_MEM_
-/* This counter doesn't complain realloc's(), it's gives
- * an aproximation for the startup */
-size_t global_mem = 0;
-#ifdef DBG_MEM_ALLOC_SKIP_STARTUP
-uint8_t print_mem_flag = 0;
-#else
-uint8_t print_mem_flag = 1;
-#endif
-#endif
-#endif
-
 void GlobalsInitPreConfig(void)
 {
     TimeInit();
@@ -339,13 +325,6 @@ static void GlobalsDestroy(SCInstance *suri)
     HostShutdown();
     HTPFreeConfig();
     HTPAtExitPrintStats();
-
-#ifdef DBG_MEM_ALLOC
-    SCLogInfo("Total memory used (without SCFree()): %"PRIdMAX, (intmax_t)global_mem);
-#ifdef DBG_MEM_ALLOC_SKIP_STARTUP
-    print_mem_flag = 0;
-#endif
-#endif
 
     AppLayerHtpPrintStats();
 
@@ -391,8 +370,6 @@ static void GlobalsDestroy(SCInstance *suri)
 #ifdef NFQ
     NFQContextsClean();
 #endif
-
-    SC_ATOMIC_DESTROY(engine_stage);
 
 #ifdef BUILD_HYPERSCAN
     MpmHSGlobalCleanup();
@@ -673,7 +650,7 @@ static void PrintBuildInfo(void)
     const char *bits = "<unknown>-bits";
     const char *endian = "<unknown>-endian";
     char features[2048] = "";
-    const char *tls = "pthread key";
+    const char *tls;
 
     printf("This is %s version %s\n", PROG_NAME, GetProgramVersion());
 
@@ -738,8 +715,13 @@ static void PrintBuildInfo(void)
 #ifdef PROFILE_LOCKING
     strlcat(features, "PROFILE_LOCKING ", sizeof(features));
 #endif
-#ifdef TLS
+#if defined(TLS_C11) || defined(TLS_GNU)
     strlcat(features, "TLS ", sizeof(features));
+#endif
+#if defined(TLS_C11)
+    strlcat(features, "TLS_C11 ", sizeof(features));
+#elif defined(TLS_GNU)
+    strlcat(features, "TLS_GNU ", sizeof(features));
 #endif
 #ifdef HAVE_MAGIC
     strlcat(features, "MAGIC ", sizeof(features));
@@ -833,8 +815,12 @@ static void PrintBuildInfo(void)
 #ifdef CLS
     printf("L1 cache line size (CLS)=%d\n", CLS);
 #endif
-#ifdef TLS
+#if defined(TLS_C11)
+    tls = "_Thread_local";
+#elif defined(TLS_GNU)
     tls = "__thread";
+#else
+#error "Unsupported thread local"
 #endif
     printf("thread local storage method: %s\n", tls);
 
@@ -2783,7 +2769,7 @@ int SuricataMain(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    (void) SC_ATOMIC_CAS(&engine_stage, SURICATA_INIT, SURICATA_RUNTIME);
+    SC_ATOMIC_SET(engine_stage, SURICATA_RUNTIME);
     PacketPoolPostRunmodes();
 
     /* Un-pause all the paused threads */
@@ -2791,18 +2777,11 @@ int SuricataMain(int argc, char **argv)
 
     PostRunStartedDetectSetup(&suricata);
 
-#ifdef DBG_MEM_ALLOC
-    SCLogInfo("Memory used at startup: %"PRIdMAX, (intmax_t)global_mem);
-#ifdef DBG_MEM_ALLOC_SKIP_STARTUP
-    print_mem_flag = 1;
-#endif
-#endif
-
     SCPledge();
     SuricataMainLoop(&suricata);
 
     /* Update the engine stage/status flag */
-    (void) SC_ATOMIC_CAS(&engine_stage, SURICATA_RUNTIME, SURICATA_DEINIT);
+    SC_ATOMIC_SET(engine_stage, SURICATA_DEINIT);
 
     UnixSocketKillSocketThread();
     PostRunDeinit(suricata.run_mode, &suricata.start_time);

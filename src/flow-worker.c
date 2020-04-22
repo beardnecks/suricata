@@ -102,7 +102,7 @@ static TmEcode FlowWorkerThreadInit(ThreadVars *tv, const void *initdata, void *
     if (fw == NULL)
         return TM_ECODE_FAILED;
 
-    SC_ATOMIC_INIT(fw->detect_thread);
+    SC_ATOMIC_INITPTR(fw->detect_thread);
     SC_ATOMIC_SET(fw->detect_thread, NULL);
 
     fw->local_bypass_pkts = StatsRegisterCounter("flow_bypassed.local_pkts", tv);
@@ -170,7 +170,6 @@ static TmEcode FlowWorkerThreadDeinit(ThreadVars *tv, void *data)
     /* free pq */
     BUG_ON(fw->pq.len);
 
-    SC_ATOMIC_DESTROY(fw->detect_thread);
     SCFree(fw);
     return TM_ECODE_OK;
 }

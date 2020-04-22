@@ -24,14 +24,13 @@
 #ifndef __UTIL_DEBUG_H__
 #define __UTIL_DEBUG_H__
 
-#include <stdio.h>
-#include <stdint.h>
-#include <pcre.h>
+#include "suricata-common.h"
 
 #include "threads.h"
 #include "util-enum.h"
 #include "util-error.h"
 #include "util-debug-filters.h"
+#include "util-atomic.h"
 
 /**
  * \brief ENV vars that can be used to set the properties for the logging module
@@ -208,43 +207,10 @@ extern int sc_log_module_initialized;
 
 extern int sc_log_module_cleaned;
 
-#define SCLog(x, file, func, line, ...)                                         \
-    do {                                                                        \
-        if (sc_log_global_log_level >= x &&                                     \
-               (sc_log_fg_filters_present == 0 ||                               \
-                SCLogMatchFGFilterWL(file, func, line) == 1 ||                  \
-                SCLogMatchFGFilterBL(file, func, line) == 1) &&                 \
-               (sc_log_fd_filters_present == 0 ||                               \
-                SCLogMatchFDFilter(func) == 1))                                 \
-        {                                                                       \
-            char _sc_log_msg[SC_LOG_MAX_LOG_MSG_LEN];                           \
-                                                                                \
-            int _sc_log_ret = snprintf(_sc_log_msg, SC_LOG_MAX_LOG_MSG_LEN, __VA_ARGS__);   \
-            if (_sc_log_ret == SC_LOG_MAX_LOG_MSG_LEN)                          \
-                _sc_log_msg[SC_LOG_MAX_LOG_MSG_LEN - 1] = '\0';                 \
-                                                                                \
-            SCLogMessage(x, file, line, func, SC_OK, _sc_log_msg);              \
-        }                                                                       \
-    } while(0)
-
-#define SCLogErr(x, file, func, line, err, ...)                                 \
-    do {                                                                        \
-        if (sc_log_global_log_level >= x &&                                     \
-               (sc_log_fg_filters_present == 0 ||                               \
-                SCLogMatchFGFilterWL(file, func, line) == 1 ||                  \
-                SCLogMatchFGFilterBL(file, func, line) == 1) &&                 \
-               (sc_log_fd_filters_present == 0 ||                               \
-                SCLogMatchFDFilter(func) == 1))                                 \
-        {                                                                       \
-            char _sc_log_msg[SC_LOG_MAX_LOG_MSG_LEN];                           \
-                                                                                \
-            int _sc_log_ret = snprintf(_sc_log_msg, SC_LOG_MAX_LOG_MSG_LEN, __VA_ARGS__);   \
-            if (_sc_log_ret == SC_LOG_MAX_LOG_MSG_LEN)                          \
-                _sc_log_msg[SC_LOG_MAX_LOG_MSG_LEN - 1] = '\0';                 \
-                                                                                \
-            SCLogMessage(x, file, line, func, err, _sc_log_msg);                \
-        }                                                                       \
-    } while(0)
+void SCLog(int x, const char *file, const char *func, const int line,
+        const char *fmt, ...) ATTR_FMT_PRINTF(5,6);
+void SCLogErr(int x, const char *file, const char *func, const int line,
+        const int err, const char *fmt, ...) ATTR_FMT_PRINTF(6,7);
 
 /**
  * \brief Macro used to log INFORMATIONAL messages.
@@ -575,6 +541,7 @@ extern int sc_log_module_cleaned;
  *         errors to be fatal errors */
 #if !defined(__clang_analyzer__)
 #define FatalErrorOnInit(x, ...) do {                                       \
+    SC_ATOMIC_EXTERN(unsigned int, engine_stage);                           \
     int init_errors_fatal = 0;                                              \
     ConfGetBool("engine.init-failure-fatal", &init_errors_fatal);           \
     if (init_errors_fatal && (SC_ATOMIC_GET(engine_stage) == SURICATA_INIT))\

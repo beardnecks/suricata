@@ -6,7 +6,6 @@
     AM_INIT_AUTOMAKE([tar-ustar subdir-objects])
 
     AC_LANG([C])
-    AC_PROG_CC_C99
     LT_INIT
     PKG_PROG_PKG_CONFIG
 
@@ -41,16 +40,6 @@
     case "$compiler" in
         clang)
             CLANG_CFLAGS="-Wextra -Werror-implicit-function-declaration -Wno-error=unused-command-line-argument"
-            AC_MSG_CHECKING([clang __sync_bool_compare_and_swap support])
-            AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdio.h>]],
-                [[ unsigned int i = 0; (void)__sync_bool_compare_and_swap(&i, 1, 1);]])],
-                [
-                    AC_DEFINE([__GCC_HAVE_SYNC_COMPARE_AND_SWAP_1], [1], [Fake GCC atomic support])
-                    AC_DEFINE([__GCC_HAVE_SYNC_COMPARE_AND_SWAP_2], [1], [Fake GCC atomic support])
-                    AC_DEFINE([__GCC_HAVE_SYNC_COMPARE_AND_SWAP_4], [1], [Fake GCC atomic support])
-                    AC_DEFINE([__GCC_HAVE_SYNC_COMPARE_AND_SWAP_8], [1], [Fake GCC atomic support])
-                    AC_MSG_RESULT([yes])],
-                [AC_MSG_RESULT([no])])
             AC_SUBST(CLANG_CFLAGS)
             ;;
         gcc)
@@ -188,13 +177,14 @@
     AC_CHECK_HEADERS([sys/time.h time.h unistd.h sys/param.h])
     AC_CHECK_HEADERS([sys/ioctl.h linux/if_ether.h linux/if_packet.h linux/filter.h])
     AC_CHECK_HEADERS([linux/ethtool.h linux/sockios.h])
-    AC_CHECK_HEADERS([glob.h locale.h])
+    AC_CHECK_HEADERS([glob.h locale.h grp.h pwd.h])
     AC_CHECK_HEADERS([dirent.h fnmatch.h])
     AC_CHECK_HEADERS([sys/resource.h sys/types.h sys/un.h])
     AC_CHECK_HEADERS([sys/random.h])
     AC_CHECK_HEADERS([utime.h])
     AC_CHECK_HEADERS([libgen.h])
     AC_CHECK_HEADERS([mach/mach.h])
+    AC_CHECK_HEADERS([stdatomic.h])
 
     AC_CHECK_HEADERS([sys/socket.h net/if.h sys/mman.h linux/if_arp.h], [], [],
     [[#ifdef HAVE_SYS_SOCKET_H
@@ -232,6 +222,10 @@
     AC_TYPE_UINT16_T
     AC_TYPE_UINT32_T
     AC_TYPE_UINT64_T
+    AC_TYPE_UINT
+    AC_TYPE_USHORT
+    AC_TYPE_ULONG
+    AC_TYPE_UCHAR
     AC_STRUCT_TIMEZONE
     AC_CHECK_TYPES([ptrdiff_t])
     AC_HEADER_STDBOOL
@@ -329,18 +323,35 @@
     esac
     AC_MSG_RESULT(ok)
 
-  # disable TLS on user request
-    AC_ARG_ENABLE(threading-tls,
-           AS_HELP_STRING([--disable-threading-tls], [Disable TLS (thread local storage)]), [enable_tls="$enableval"],[enable_tls=yes])
-    AS_IF([test "x$enable_tls" = "xyes"], [
-        # check if our target supports thread local storage
-        AC_MSG_CHECKING(for thread local storage __thread support)
-        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdlib.h>]],
-            [[ static __thread int i; i = 1; i++; ]])],
-            [AC_DEFINE([TLS], [1], [Thread local storage])
-             AC_MSG_RESULT([yes])],
-            [AC_MSG_RESULT([no])])
-    ])
+    # check if our target supports c11
+    AC_MSG_CHECKING(for c11 support)
+    OCFLAGS=$CFLAGS
+    CFLAGS="-std=c11"
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdlib.h>]],
+                [[ static _Thread_local int i; i = 1; i++; ]])],
+            AC_MSG_RESULT([yes])
+            [AC_DEFINE([TLS_C11], [1], [C11 Thread local storage])
+             CFLAGS="$OCFLAGS -std=c11"],
+            [AC_MSG_RESULT([no])
+             CFLAGS="$OCFLAGS"
+             have_c11=no
+             have_c11_tls=no])
+    if [ test "x$have_c11" = "xno" ]; then
+        CFLAGS="$CFLAGS -std=gnu99"
+    fi
+
+    # check if our target supports thread local storage
+    AC_MSG_CHECKING(for thread local storage gnu __thread support)
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <stdlib.h>]],
+                [[ static __thread int i; i = 1; i++; ]])],
+            [AC_DEFINE([TLS_GNU], [1], [Thread local storage])
+            AC_MSG_RESULT([yes])],
+            [AC_MSG_RESULT([no])
+             have_gnu_tls=no])
+    if [ test "x$have_c11_tls" = "xno" ] && [ test "x$have_gnu_tls" = "xno" ]; then
+        AC_MSG_ERROR("no thread local support available.")
+        exit 1
+    fi
 
     #Enable support for gcc compile time security options. There is no great way to do detection of valid cflags that I have found
     #AX_CFLAGS_GCC_OPTION don't seem to do a better job than the code below and are a pain because of extra m4 files etc.
@@ -1322,12 +1333,24 @@ return 0;
         CPPFLAGS="${CPPFLAGS} -I${with_libpcap_includes}"
     fi
 
-    AC_CHECK_HEADER(pcap.h,,[AC_MSG_ERROR(pcap.h not found ...)])
+    AC_CHECK_HEADERS([pcap.h],[],[AC_MSG_ERROR(pcap.h not found ...)],
+            [[
+                #ifdef HAVE_WINSOCK2_H
+                #include <winsock2.h>
+                #endif
+                #define _DEFAULT_SOURCE 1
+            ]])
 
     if test "$with_libpcap_libraries" != "no"; then
         LDFLAGS="${LDFLAGS}  -L${with_libpcap_libraries}"
     fi
-    AC_CHECK_HEADERS([pcap.h pcap/pcap.h pcap/bpf.h])
+    AC_CHECK_HEADERS([pcap.h pcap/pcap.h pcap/bpf.h],[],[],
+            [[
+                #ifdef HAVE_WINSOCK2_H
+                #include <winsock2.h>
+                #endif
+                #define _DEFAULT_SOURCE 1
+            ]])
 
     LIBPCAP=""
     PKG_CHECK_MODULES([PCAP],libpcap,[CPPFLAGS="${CPPFLAGS} ${PCAP_CFLAGS}" LIBS="${LIBS} ${PCAP_LIBS}"],[:])

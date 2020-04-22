@@ -1,4 +1,4 @@
-/* Copyright (C) 2007-2017 Open Information Security Foundation
+/* Copyright (C) 2007-2020 Open Information Security Foundation
  *
  * You can copy, redistribute or modify this Program under the terms of
  * the GNU General Public License version 2 as published by the Free
@@ -44,21 +44,21 @@
 #include "queue.h"
 
 #ifdef PROFILE_LOCKING
-__thread uint64_t mutex_lock_contention;
-__thread uint64_t mutex_lock_wait_ticks;
-__thread uint64_t mutex_lock_cnt;
+thread_local uint64_t mutex_lock_contention;
+thread_local uint64_t mutex_lock_wait_ticks;
+thread_local uint64_t mutex_lock_cnt;
 
-__thread uint64_t spin_lock_contention;
-__thread uint64_t spin_lock_wait_ticks;
-__thread uint64_t spin_lock_cnt;
+thread_local uint64_t spin_lock_contention;
+thread_local uint64_t spin_lock_wait_ticks;
+thread_local uint64_t spin_lock_cnt;
 
-__thread uint64_t rww_lock_contention;
-__thread uint64_t rww_lock_wait_ticks;
-__thread uint64_t rww_lock_cnt;
+thread_local uint64_t rww_lock_contention;
+thread_local uint64_t rww_lock_wait_ticks;
+thread_local uint64_t rww_lock_cnt;
 
-__thread uint64_t rwr_lock_contention;
-__thread uint64_t rwr_lock_wait_ticks;
-__thread uint64_t rwr_lock_cnt;
+thread_local uint64_t rwr_lock_contention;
+thread_local uint64_t rwr_lock_wait_ticks;
+thread_local uint64_t rwr_lock_cnt;
 #endif
 
 #ifdef OS_FREEBSD
@@ -626,7 +626,7 @@ void TmSlotSetFuncAppend(ThreadVars *tv, TmModule *tm, const void *data)
     if (unlikely(slot == NULL))
         return;
     memset(slot, 0, sizeof(TmSlot));
-    SC_ATOMIC_INIT(slot->slot_data);
+    SC_ATOMIC_INITPTR(slot->slot_data);
     slot->SlotThreadInit = tm->ThreadInit;
     slot->slot_initdata = data;
     if (tm->Func) {

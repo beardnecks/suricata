@@ -189,8 +189,6 @@ static void THashDataFree(THashTableContext *ctx, THashData *h)
         if (h->data != NULL) {
             ctx->config.DataFree(h->data);
         }
-
-        SC_ATOMIC_DESTROY(h->use_cnt);
         SCMutexDestroy(&h->m);
         SCFree(h);
         (void) SC_ATOMIC_SUB(ctx->memuse, THASH_DATA_SIZE(ctx));
@@ -352,11 +350,6 @@ void THashShutdown(THashTableContext *ctx)
     }
     (void) SC_ATOMIC_SUB(ctx->memuse, ctx->config.hash_size * sizeof(THashHashRow));
     THashDataQueueDestroy(&ctx->spare_q);
-
-    SC_ATOMIC_DESTROY(ctx->prune_idx);
-    SC_ATOMIC_DESTROY(ctx->memuse);
-    SC_ATOMIC_DESTROY(ctx->counter);
-
     SCFree(ctx);
     return;
 }
@@ -743,4 +736,55 @@ static THashData *THashGetUsed(THashTableContext *ctx)
     }
 
     return NULL;
+}
+
+/**
+ * \retval int -1 not found
+ * \retval int 0 found, but it was busy (ref cnt)
+ * \retval int 1 found and removed */
+int THashRemoveFromHash (THashTableContext *ctx, void *data)
+{
+    /* get the key to our bucket */
+    uint32_t key = THashGetKey(&ctx->config, data);
+    /* get our hash bucket and lock it */
+    THashHashRow *hb = &ctx->array[key];
+
+    HRLOCK_LOCK(hb);
+    THashData *h = hb->head;
+    while (h != NULL) {
+        /* see if this is the data we are looking for */
+        if (THashCompare(&ctx->config, h->data, data) == 0) {
+            h = h->next;
+            continue;
+        }
+
+        SCMutexLock(&h->m);
+        if (SC_ATOMIC_GET(h->use_cnt) > 0) {
+            SCMutexUnlock(&h->m);
+            HRLOCK_UNLOCK(hb);
+            return 0;
+        }
+
+        /* remove from the hash */
+        if (h->prev != NULL)
+            h->prev->next = h->next;
+        if (h->next != NULL)
+            h->next->prev = h->prev;
+        if (hb->head == h)
+            hb->head = h->next;
+        if (hb->tail == h)
+            hb->tail = h->prev;
+
+        h->next = NULL;
+        h->prev = NULL;
+        SCMutexUnlock(&h->m);
+        HRLOCK_UNLOCK(hb);
+        THashDataFree(ctx, h);
+        SCLogDebug("found and removed");
+        return 1;
+    }
+
+    HRLOCK_UNLOCK(hb);
+    SCLogDebug("data not found");
+    return -1;
 }
