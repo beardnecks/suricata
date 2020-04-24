@@ -1,33 +1,33 @@
 FROM alpine:latest AS build_stage
 RUN apk update
 RUN apk add \
-     		 ca-certificates \
-		 build-base \
-		 py3-yaml \
-		 python3 \
-		 automake \
-		 autoconf \
-		 libtool \
-		 libcap-ng-dev \
-		 lz4-dev \
-		 file-dev \
-		 geoip-dev \
-		 pcre-dev \
-		 yaml-dev \
-		 libpcap-dev \
-		 hiredis-dev \
-		 nss-dev \
-		 libnet-dev \
-		 libnetfilter_queue-dev \
-		 libnfnetlink-dev \
-		 jansson-dev \
-		 nspr-dev \
-		 libnetfilter_log-dev \
-		 libmaxminddb-dev \
-		 rust \
-		 luajit-dev \
-		 cargo \
-		 zlib-dev
+     		         autoconf \
+             		 automake \
+             		 build-base \
+             		 ca-certificates \
+             		 cargo \
+             		 file-dev \
+             		 geoip-dev \
+             		 hiredis-dev \
+             		 jansson-dev \
+             		 libcap-ng-dev \
+             		 libmaxminddb-dev \
+             		 libnet-dev \
+             		 libnetfilter_log-dev \
+             		 libnetfilter_queue-dev \
+             		 libnfnetlink-dev \
+             		 libpcap-dev \
+             		 libtool \
+             		 luajit-dev \
+             		 lz4-dev \
+             		 nspr-dev \
+             		 nss-dev \
+             		 pcre-dev \
+             		 py3-yaml \
+             		 python3 \
+             		 rust \
+             		 yaml-dev \
+             		 zlib-dev
 
 RUN cargo install --force cbindgen
 ENV PATH="/root/.cargo/bin:${PATH}"
