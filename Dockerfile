@@ -41,18 +41,18 @@ RUN ./autogen.sh \
 
 
 FROM alpine:latest
-RUN apk add rsync \
-  python3 \
-  py-yaml \
-  libnet-dev \
-  nss-dev \
-  lz4-dev \
-  pcre-dev \
-  file-dev \
-  libcap-ng-dev \
-  jansson-dev \
-  libpcap-dev \
-  yaml-dev
+RUN apk add file-dev \
+    jansson-dev \
+    libcap-ng-dev \
+    libnet-dev \
+    libpcap-dev \
+    lz4-dev \
+    nss-dev \
+    pcre-dev \
+    py-yaml \
+    python3 \
+    rsync \
+    yaml-dev
 RUN pip3 install awscli
 WORKDIR /
 COPY --from=build_stage suricata-docker/ /suricata-docker/
