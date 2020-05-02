@@ -1,4 +1,4 @@
-/* Copyright (C) 2007-2014 Open Information Security Foundation
+/* Copyright (C) 2007-2020 Open Information Security Foundation
  *
  * You can copy, redistribute or modify this Program under the terms of
  * the GNU General Public License version 2 as published by the Free
@@ -1189,7 +1189,7 @@ typedef struct SigTableElmt_ {
     bool (*SupportsPrefilter)(const Signature *s);
     int (*SetupPrefilter)(DetectEngineCtx *de_ctx, struct SigGroupHead_ *sgh);
 
-    void (*Free)(void *);
+    void (*Free)(DetectEngineCtx *, void *);
     void (*RegisterTests)(void);
 
     uint16_t flags;
@@ -1458,7 +1458,7 @@ Signature *SigFindSignatureBySidGid(DetectEngineCtx *, uint32_t, uint32_t);
 void SigMatchSignaturesBuildMatchArray(DetectEngineThreadCtx *,
                                        Packet *, SignatureMask,
                                        uint16_t);
-void SigMatchFree(SigMatch *sm);
+void SigMatchFree(DetectEngineCtx *, SigMatch *sm);
 
 void SigRegisterTests(void);
 void TmModuleDetectRegister (void);
@@ -1477,6 +1477,7 @@ const SigGroupHead *SigMatchSignaturesGetSgh(const DetectEngineCtx *de_ctx, cons
 Signature *DetectGetTagSignature(void);
 
 
+int DetectUnregisterThreadCtxFuncs(DetectEngineCtx *, DetectEngineThreadCtx *,void *data, const char *name);
 int DetectRegisterThreadCtxFuncs(DetectEngineCtx *, const char *name, void *(*InitFunc)(void *), void *data, void (*FreeFunc)(void *), int);
 void *DetectThreadCtxGetKeywordThreadCtx(DetectEngineThreadCtx *, int);
 

@@ -72,7 +72,7 @@ static void TlsNotAfterRegisterTests(void);
 static void TlsExpiredRegisterTests(void);
 static void TlsValidRegisterTests(void);
 #endif /* UNITTESTS */
-static void DetectTlsValidityFree(void *);
+static void DetectTlsValidityFree(DetectEngineCtx *, void *);
 static int g_tls_validity_buffer_id = 0;
 
 static int DetectEngineInspectTlsValidity(ThreadVars *tv,
@@ -88,7 +88,7 @@ void DetectTlsValidityRegister (void)
 {
     sigmatch_table[DETECT_AL_TLS_NOTBEFORE].name = "tls_cert_notbefore";
     sigmatch_table[DETECT_AL_TLS_NOTBEFORE].desc = "match TLS certificate notBefore field";
-    sigmatch_table[DETECT_AL_TLS_NOTBEFORE].url = DOC_URL DOC_VERSION "/rules/tls-keywords.html#tls-cert-notbefore";
+    sigmatch_table[DETECT_AL_TLS_NOTBEFORE].url = "/rules/tls-keywords.html#tls-cert-notbefore";
     sigmatch_table[DETECT_AL_TLS_NOTBEFORE].AppLayerTxMatch = DetectTlsValidityMatch;
     sigmatch_table[DETECT_AL_TLS_NOTBEFORE].Setup = DetectTlsNotBeforeSetup;
     sigmatch_table[DETECT_AL_TLS_NOTBEFORE].Free = DetectTlsValidityFree;
@@ -98,7 +98,7 @@ void DetectTlsValidityRegister (void)
 
     sigmatch_table[DETECT_AL_TLS_NOTAFTER].name = "tls_cert_notafter";
     sigmatch_table[DETECT_AL_TLS_NOTAFTER].desc = "match TLS certificate notAfter field";
-    sigmatch_table[DETECT_AL_TLS_NOTAFTER].url = DOC_URL DOC_VERSION "/rules/tls-keywords.html#tls-cert-notafter";
+    sigmatch_table[DETECT_AL_TLS_NOTAFTER].url = "/rules/tls-keywords.html#tls-cert-notafter";
     sigmatch_table[DETECT_AL_TLS_NOTAFTER].AppLayerTxMatch = DetectTlsValidityMatch;
     sigmatch_table[DETECT_AL_TLS_NOTAFTER].Setup = DetectTlsNotAfterSetup;
     sigmatch_table[DETECT_AL_TLS_NOTAFTER].Free = DetectTlsValidityFree;
@@ -108,7 +108,7 @@ void DetectTlsValidityRegister (void)
 
     sigmatch_table[DETECT_AL_TLS_EXPIRED].name = "tls_cert_expired";
     sigmatch_table[DETECT_AL_TLS_EXPIRED].desc = "match expired TLS certificates";
-    sigmatch_table[DETECT_AL_TLS_EXPIRED].url = DOC_URL DOC_VERSION "/rules/tls-keywords.html#tls-cert-expired";
+    sigmatch_table[DETECT_AL_TLS_EXPIRED].url = "/rules/tls-keywords.html#tls-cert-expired";
     sigmatch_table[DETECT_AL_TLS_EXPIRED].AppLayerTxMatch = DetectTlsValidityMatch;
     sigmatch_table[DETECT_AL_TLS_EXPIRED].Setup = DetectTlsExpiredSetup;
     sigmatch_table[DETECT_AL_TLS_EXPIRED].Free = DetectTlsValidityFree;
@@ -119,7 +119,7 @@ void DetectTlsValidityRegister (void)
 
     sigmatch_table[DETECT_AL_TLS_VALID].name = "tls_cert_valid";
     sigmatch_table[DETECT_AL_TLS_VALID].desc = "match valid TLS certificates";
-    sigmatch_table[DETECT_AL_TLS_VALID].url = DOC_URL DOC_VERSION "/rules/tls-keywords.html#tls-cert-valid";
+    sigmatch_table[DETECT_AL_TLS_VALID].url = "/rules/tls-keywords.html#tls-cert-valid";
     sigmatch_table[DETECT_AL_TLS_VALID].AppLayerTxMatch = DetectTlsValidityMatch;
     sigmatch_table[DETECT_AL_TLS_VALID].Setup = DetectTlsValidSetup;
     sigmatch_table[DETECT_AL_TLS_VALID].Free = DetectTlsValidityFree;
@@ -465,7 +465,7 @@ static int DetectTlsExpiredSetup (DetectEngineCtx *de_ctx, Signature *s,
     return 0;
 
 error:
-    DetectTlsValidityFree(dd);
+    DetectTlsValidityFree(de_ctx, dd);
     if (sm)
         SCFree(sm);
     return -1;
@@ -516,7 +516,7 @@ static int DetectTlsValidSetup (DetectEngineCtx *de_ctx, Signature *s,
     return 0;
 
 error:
-    DetectTlsValidityFree(dd);
+    DetectTlsValidityFree(de_ctx, dd);
     if (sm)
         SCFree(sm);
     return -1;
@@ -612,7 +612,7 @@ static int DetectTlsValiditySetup (DetectEngineCtx *de_ctx, Signature *s,
     return 0;
 
 error:
-    DetectTlsValidityFree(dd);
+    DetectTlsValidityFree(de_ctx, dd);
     if (sm)
         SCFree(sm);
     return -1;
@@ -624,7 +624,7 @@ error:
  *
  * \param de_ptr Pointer to DetectTlsValidityData.
  */
-void DetectTlsValidityFree(void *de_ptr)
+void DetectTlsValidityFree(DetectEngineCtx *de_ctx, void *de_ptr)
 {
     DetectTlsValidityData *dd = (DetectTlsValidityData *)de_ptr;
     if (dd)

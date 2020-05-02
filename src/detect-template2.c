@@ -41,7 +41,7 @@ static DetectParseRegex parse_regex;
 static int DetectTemplate2Match (DetectEngineThreadCtx *, Packet *,
         const Signature *, const SigMatchCtx *);
 static int DetectTemplate2Setup (DetectEngineCtx *, Signature *, const char *);
-void DetectTemplate2Free (void *);
+void DetectTemplate2Free (DetectEngineCtx *, void *);
 #ifdef UNITTESTS
 void DetectTemplate2RegisterTests (void);
 #endif
@@ -56,7 +56,7 @@ void DetectTemplate2Register(void)
 {
     sigmatch_table[DETECT_TEMPLATE2].name = "template2";
     sigmatch_table[DETECT_TEMPLATE2].desc = "TODO describe the keyword";
-    sigmatch_table[DETECT_TEMPLATE2].url = DOC_URL DOC_VERSION "/rules/header-keywords.html#template2";
+    sigmatch_table[DETECT_TEMPLATE2].url = "/rules/header-keywords.html#template2";
     sigmatch_table[DETECT_TEMPLATE2].Match = DetectTemplate2Match;
     sigmatch_table[DETECT_TEMPLATE2].Setup = DetectTemplate2Setup;
     sigmatch_table[DETECT_TEMPLATE2].Free = DetectTemplate2Free;
@@ -276,7 +276,7 @@ static int DetectTemplate2Setup (DetectEngineCtx *de_ctx, Signature *s, const ch
 
     SigMatch *sm = SigMatchAlloc();
     if (sm == NULL) {
-        DetectTemplate2Free(template2d);
+        DetectTemplate2Free(de_ctx, template2d);
         return -1;
     }
 
@@ -294,7 +294,7 @@ static int DetectTemplate2Setup (DetectEngineCtx *de_ctx, Signature *s, const ch
  *
  * \param ptr pointer to DetectTemplate2Data
  */
-void DetectTemplate2Free(void *ptr)
+void DetectTemplate2Free(DetectEngineCtx *de_ctx, void *ptr)
 {
     DetectTemplate2Data *template2d = (DetectTemplate2Data *)ptr;
     SCFree(template2d);

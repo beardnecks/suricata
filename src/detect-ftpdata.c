@@ -45,7 +45,7 @@ static int DetectFtpdataMatch(DetectEngineThreadCtx *,
         Flow *, uint8_t, void *, void *,
         const Signature *, const SigMatchCtx *);
 static int DetectFtpdataSetup (DetectEngineCtx *, Signature *, const char *);
-static void DetectFtpdataFree (void *);
+static void DetectFtpdataFree (DetectEngineCtx *, void *);
 static void DetectFtpdataRegisterTests (void);
 static int DetectEngineInspectFtpdataGeneric(ThreadVars *tv,
         DetectEngineCtx *de_ctx, DetectEngineThreadCtx *det_ctx,
@@ -64,7 +64,7 @@ void DetectFtpdataRegister(void) {
     sigmatch_table[DETECT_FTPDATA].name = "ftpdata_command";
     /* description: listed in "suricata --list-keywords=all" */
     sigmatch_table[DETECT_FTPDATA].desc = "match FTP command triggering a FTP data channel";
-    sigmatch_table[DETECT_FTPDATA].url = DOC_URL DOC_VERSION "/rules/ftp-keywords.html#ftpdata-command";
+    sigmatch_table[DETECT_FTPDATA].url = "/rules/ftp-keywords.html#ftpdata-command";
     sigmatch_table[DETECT_FTPDATA].AppLayerTxMatch = DetectFtpdataMatch;
     /* setup function is called during signature parsing, when the ftpcommand
      * keyword is encountered in the rule */
@@ -201,7 +201,7 @@ static int DetectFtpdataSetup(DetectEngineCtx *de_ctx, Signature *s, const char 
 
     SigMatch *sm = SigMatchAlloc();
     if (sm == NULL) {
-        DetectFtpdataFree(ftpcommandd);
+        DetectFtpdataFree(de_ctx, ftpcommandd);
         return -1;
     }
     sm->type = DETECT_FTPDATA;
@@ -216,7 +216,7 @@ static int DetectFtpdataSetup(DetectEngineCtx *de_ctx, Signature *s, const char 
  *
  * \param ptr pointer to DetectFtpdataData
  */
-static void DetectFtpdataFree(void *ptr) {
+static void DetectFtpdataFree(DetectEngineCtx *de_ctx, void *ptr) {
     DetectFtpdataData *ftpcommandd = (DetectFtpdataData *)ptr;
 
     /* do more specific cleanup here, if needed */
@@ -231,7 +231,7 @@ static int DetectFtpdataParseTest01(void)
     DetectFtpdataData *ftpcommandd = DetectFtpdataParse("stor");
     FAIL_IF_NULL(ftpcommandd);
     FAIL_IF(!(ftpcommandd->command == FTP_COMMAND_STOR));
-    DetectFtpdataFree(ftpcommandd);
+    DetectFtpdataFree(NULL, ftpcommandd);
     PASS;
 }
 

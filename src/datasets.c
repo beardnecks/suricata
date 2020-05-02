@@ -32,6 +32,7 @@
 #include "util-print.h"
 #include "util-crypt.h"     // encode base64
 #include "util-base64.h"    // decode base64
+#include "util-byte.h"
 
 SCMutex sets_lock = SCMUTEX_INITIALIZER;
 static Dataset *sets = NULL;
@@ -138,12 +139,14 @@ static int ParseRepLine(const char *in, size_t ins, DataRepType *rep_out)
         return -1;
     }
 
-    int v = atoi(ptrs[0]);
-    if (v < 0 || v > USHRT_MAX) {
-        SCLogDebug("v %d", v);
+    uint16_t v = 0;
+    int r = StringParseU16RangeCheck(&v, 10, strlen(ptrs[0]), ptrs[0], 0, USHRT_MAX);
+    if (r != (int)strlen(ptrs[0])) {
+        SCLogError(SC_ERR_INVALID_NUMERIC_VALUE,
+                "'%s' is not a valid reputation value (0-65535)", ptrs[0]);
         return -1;
     }
-    SCLogDebug("v %d raw %s", v, ptrs[0]);
+    SCLogDebug("v %"PRIu16" raw %s", v, ptrs[0]);
 
     rep_out->value = v;
     return 0;
@@ -312,6 +315,7 @@ static int DatasetLoadString(Dataset *set)
             line[strlen(line) - 1] = '\0';
             SCLogDebug("line: '%s'", line);
 
+            // coverity[alloc_strlen : FALSE]
             uint8_t decoded[strlen(line)];
             uint32_t len = DecodeBase64(decoded, (const uint8_t *)line, strlen(line), 1);
             if (len == 0)
@@ -328,6 +332,7 @@ static int DatasetLoadString(Dataset *set)
 
             *r = '\0';
 
+            // coverity[alloc_strlen : FALSE]
             uint8_t decoded[strlen(line)];
             uint32_t len = DecodeBase64(decoded, (const uint8_t *)line, strlen(line), 1);
             if (len == 0)
@@ -1016,6 +1021,7 @@ int DatasetAddSerialized(Dataset *set, const char *string)
 
     switch (set->type) {
         case DATASET_TYPE_STRING: {
+            // coverity[alloc_strlen : FALSE]
             uint8_t decoded[strlen(string)];
             uint32_t len = DecodeBase64(decoded, (const uint8_t *)string, strlen(string), 1);
             if (len == 0) {
@@ -1097,6 +1103,7 @@ int DatasetRemoveSerialized(Dataset *set, const char *string)
 
     switch (set->type) {
         case DATASET_TYPE_STRING: {
+            // coverity[alloc_strlen : FALSE]
             uint8_t decoded[strlen(string)];
             uint32_t len = DecodeBase64(decoded, (const uint8_t *)string, strlen(string), 1);
             if (len == 0) {

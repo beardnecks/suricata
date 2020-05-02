@@ -52,7 +52,7 @@ typedef struct DetectSNMPVersionData_ {
 
 static DetectSNMPVersionData *DetectSNMPVersionParse (const char *);
 static int DetectSNMPVersionSetup (DetectEngineCtx *, Signature *s, const char *str);
-static void DetectSNMPVersionFree(void *);
+static void DetectSNMPVersionFree(DetectEngineCtx *, void *);
 #ifdef UNITTESTS
 static void DetectSNMPVersionRegisterTests(void);
 #endif
@@ -75,7 +75,7 @@ void DetectSNMPVersionRegister (void)
 {
     sigmatch_table[DETECT_AL_SNMP_VERSION].name = "snmp.version";
     sigmatch_table[DETECT_AL_SNMP_VERSION].desc = "match SNMP version";
-    sigmatch_table[DETECT_AL_SNMP_VERSION].url = DOC_URL DOC_VERSION "/rules/snmp-keywords.html#snmp-version";
+    sigmatch_table[DETECT_AL_SNMP_VERSION].url = "/rules/snmp-keywords.html#snmp-version";
     sigmatch_table[DETECT_AL_SNMP_VERSION].Match = NULL;
     sigmatch_table[DETECT_AL_SNMP_VERSION].AppLayerTxMatch = DetectSNMPVersionMatch;
     sigmatch_table[DETECT_AL_SNMP_VERSION].Setup = DetectSNMPVersionSetup;
@@ -285,7 +285,7 @@ static int DetectSNMPVersionSetup (DetectEngineCtx *de_ctx, Signature *s,
     return 0;
 
 error:
-    DetectSNMPVersionFree(dd);
+    DetectSNMPVersionFree(de_ctx, dd);
     return -1;
 }
 
@@ -295,7 +295,7 @@ error:
  *
  * \param de_ptr Pointer to DetectSNMPVersionData.
  */
-static void DetectSNMPVersionFree(void *ptr)
+static void DetectSNMPVersionFree(DetectEngineCtx *de_ctx, void *ptr)
 {
     SCFree(ptr);
 }

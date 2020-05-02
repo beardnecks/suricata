@@ -1,4 +1,4 @@
-/* Copyright (C) 2007-2010 Open Information Security Foundation
+/* Copyright (C) 2007-2020 Open Information Security Foundation
  *
  * You can copy, redistribute or modify this Program under the terms of
  * the GNU General Public License version 2 as published by the Free
@@ -22,7 +22,7 @@
  * \author Pablo Rincon Crespo <pablo.rincon.crespo@gmail.com>
  *
  * Signatures that only inspect IP addresses are processed here
- * We use radix trees for src dst ipv4 and ipv6 adresses
+ * We use radix trees for src dst ipv4 and ipv6 addresses
  * This radix trees hold information for subnets and hosts in a
  * hierarchical distribution
  */
@@ -53,6 +53,7 @@
 #include "util-unittest.h"
 #include "util-unittest-helper.h"
 #include "util-print.h"
+#include "util-byte.h"
 #include "util-profiling.h"
 #include "util-validate.h"
 
@@ -92,24 +93,29 @@ static uint8_t IPOnlyCIDRItemCompare(IPOnlyCIDRItem *head,
     return 0;
 }
 
+//declaration for using it already
+static IPOnlyCIDRItem *IPOnlyCIDRItemInsert(IPOnlyCIDRItem *head,
+                                            IPOnlyCIDRItem *item);
+
 /**
  * \internal
  * \brief Parses an ipv4/ipv6 address string and updates the result into the
  *        IPOnlyCIDRItem instance sent as the argument.
  *
- * \param dd  Pointer to the IPOnlyCIDRItem instance which should be updated with
- *            the address (in cidr) details from the parsed ip string.
+ * \param pdd Double pointer to the IPOnlyCIDRItem instance which should be updated
+ *            with the address (in cidr) details from the parsed ip string.
  * \param str Pointer to address string that has to be parsed.
  *
  * \retval  0 On successfully parsing the address string.
  * \retval -1 On failure.
  */
-static int IPOnlyCIDRItemParseSingle(IPOnlyCIDRItem *dd, const char *str)
+static int IPOnlyCIDRItemParseSingle(IPOnlyCIDRItem **pdd, const char *str)
 {
     char buf[256] = "";
     char *ip = NULL, *ip2 = NULL;
     char *mask = NULL;
     int r = 0;
+    IPOnlyCIDRItem *dd = *pdd;
 
     while (*str != '\0' && *str == ' ')
         str++;
@@ -123,14 +129,14 @@ static int IPOnlyCIDRItemParseSingle(IPOnlyCIDRItem *dd, const char *str)
         /* if any, insert 0.0.0.0/0 and ::/0 as well */
         SCLogDebug("adding 0.0.0.0/0 and ::/0 as we\'re handling \'any\'");
 
-        IPOnlyCIDRItemParseSingle(dd, "0.0.0.0/0");
+        IPOnlyCIDRItemParseSingle(&dd, "0.0.0.0/0");
         BUG_ON(dd->family == 0);
 
         dd->next = IPOnlyCIDRItemNew();
         if (dd->next == NULL)
             goto error;
 
-        IPOnlyCIDRItemParseSingle(dd->next, "::/0");
+        IPOnlyCIDRItemParseSingle(&dd->next, "::/0");
         BUG_ON(dd->family == 0);
 
         SCLogDebug("address is \'any\'");
@@ -165,8 +171,8 @@ static int IPOnlyCIDRItemParseSingle(IPOnlyCIDRItem *dd, const char *str)
                         goto error;
                 }
 
-                int cidr = atoi(mask);
-                if (cidr < 0 || cidr > 32)
+                int cidr;
+                if (StringParseI32RangeCheck(&cidr, 10, 0, (const char *)mask, 0, 32) < 0)
                     goto error;
 
                 dd->netmask = cidr;
@@ -199,43 +205,55 @@ static int IPOnlyCIDRItemParseSingle(IPOnlyCIDRItem *dd, const char *str)
             ip[ip2 - ip] = '\0';
             ip2++;
 
-            uint32_t tmp_ip[4];
-            uint32_t tmp_ip2[4];
             uint32_t first, last;
 
             r = inet_pton(AF_INET, ip, &in);
             if (r <= 0)
                 goto error;
-            tmp_ip[0] = in.s_addr;
+            first = SCNtohl(in.s_addr);
 
             r = inet_pton(AF_INET, ip2, &in);
             if (r <= 0)
                 goto error;
-            tmp_ip2[0] = in.s_addr;
+            last = SCNtohl(in.s_addr);
 
             /* a > b is illegal, a = b is ok */
-            if (SCNtohl(tmp_ip[0]) > SCNtohl(tmp_ip2[0]))
+            if (first > last)
                 goto error;
 
-            first = SCNtohl(tmp_ip[0]);
-            last = SCNtohl(tmp_ip2[0]);
-
+            SCLogDebug("Creating CIDR range for [%s - %s]", ip, ip2);
             dd->netmask = 32;
-            dd->ip[0] =htonl(first);
-
-            if (first < last) {
-                for (first++; first <= last; first++) {
-                    IPOnlyCIDRItem *new = IPOnlyCIDRItemNew();
-                    if (new == NULL)
-                        goto error;
-                    dd->next = new;
-                    new->negated = dd->negated;
-                    new->family= dd->family;
-                    new->netmask = dd->netmask;
-                    new->ip[0] = htonl(first);
-                    dd = dd->next;
-                }
+            /* Find the maximum netmask starting from current address first
+             * and not crossing last.
+             * To extend the mask, we need to start from a power of 2.
+             * And we need to pay attention to unsigned overflow back to 0.0.0.0
+             */
+            while (dd->netmask > 0 &&
+                   (first & (1UL << (32-dd->netmask))) == 0 &&
+                   first + (1UL << (32-(dd->netmask-1))) - 1 <= last) {
+                dd->netmask--;
             }
+            dd->ip[0] = htonl(first);
+            first += 1UL << (32-dd->netmask);
+            //case whatever-255.255.255.255 looping to 0.0.0.0/0
+            while ( first <= last && first != 0 ) {
+                IPOnlyCIDRItem *new = IPOnlyCIDRItemNew();
+                if (new == NULL)
+                    goto error;
+                new->negated = dd->negated;
+                new->family= dd->family;
+                new->netmask = 32;
+                while (new->netmask > 0 &&
+                       (first & (1UL << (32-new->netmask))) == 0 &&
+                       first + (1UL << (32-(new->netmask-1))) - 1 <= last) {
+                    new->netmask--;
+                }
+                new->ip[0] = htonl(first);
+                first += 1UL << (32-new->netmask);
+                dd = IPOnlyCIDRItemInsert(dd, new);
+            }
+            //update head of list
+            *pdd = dd;
 
         } else {
             /* 1.2.3.4 format */
@@ -263,7 +281,10 @@ static int IPOnlyCIDRItemParseSingle(IPOnlyCIDRItem *dd, const char *str)
                 goto error;
 
             /* Format is cidr val */
-            dd->netmask = atoi(mask);
+            if (StringParseU8RangeCheck(&dd->netmask, 10, 0,
+                                        (const char *)mask, 0, 128) < 0) {
+                goto error;
+            }
 
             memcpy(dd->ip, &in6.s6_addr, sizeof(ip6addr));
         } else {
@@ -296,9 +317,9 @@ error:
  * \retval  0 On success.
  * \retval -1 On failure.
  */
-static int IPOnlyCIDRItemSetup(IPOnlyCIDRItem *gh, char *s)
+static int IPOnlyCIDRItemSetup(IPOnlyCIDRItem **gh, char *s)
 {
-    SCLogDebug("gh %p, s %s", gh, s);
+    SCLogDebug("gh %p, s %s", *gh, s);
 
     /* parse the address */
     if (IPOnlyCIDRItemParseSingle(gh, s) == -1) {
@@ -674,7 +695,7 @@ static IPOnlyCIDRItem *IPOnlyCIDRListParse2(const DetectEngineCtx *de_ctx,
                 else
                     subhead->negated = 1;
 
-                if (IPOnlyCIDRItemSetup(subhead, address) < 0) {
+                if (IPOnlyCIDRItemSetup(&subhead, address) < 0) {
                     IPOnlyCIDRListFree(subhead);
                     subhead = NULL;
                     goto error;
@@ -730,7 +751,7 @@ static IPOnlyCIDRItem *IPOnlyCIDRListParse2(const DetectEngineCtx *de_ctx,
                 else
                     subhead->negated = 1;
 
-                if (IPOnlyCIDRItemSetup(subhead, address) < 0) {
+                if (IPOnlyCIDRItemSetup(&subhead, address) < 0) {
                     IPOnlyCIDRListFree(subhead);
                     subhead = NULL;
                     goto error;
@@ -1514,7 +1535,7 @@ void IPOnlyPrepare(DetectEngineCtx *de_ctx)
         SCFree(tmpaux);
     }
 
-    /* print all the trees: for debuggin it might print too much info
+    /* print all the trees: for debugging it might print too much info
     SCLogDebug("Radix tree src ipv4:");
     SCRadixPrintTree((de_ctx->io_ctx).tree_ipv4src);
     SCLogDebug("Radix tree src ipv6:");
@@ -1530,7 +1551,7 @@ void IPOnlyPrepare(DetectEngineCtx *de_ctx)
 }
 
 /**
- * \brief Add a signature to the lists of Adrresses in CIDR format (sorted)
+ * \brief Add a signature to the lists of Addresses in CIDR format (sorted)
  *        this step is necesary to build the radix tree with a hierarchical
  *        relation between nodes
  * \param de_ctx Pointer to the current detection engine context
@@ -1582,7 +1603,7 @@ static int IPOnlyTestSig01(void)
     FAIL_IF(s == NULL);
 
     FAIL_IF(SignatureIsIPOnly(de_ctx, s) == 0);
-    SigFree(s);
+    SigFree(de_ctx, s);
     DetectEngineCtxFree(de_ctx);
     PASS;
 }
@@ -1602,7 +1623,7 @@ static int IPOnlyTestSig02 (void)
     FAIL_IF(s == NULL);
 
     FAIL_IF(SignatureIsIPOnly(de_ctx, s) == 0);
-    SigFree(s);
+    SigFree(de_ctx, s);
     DetectEngineCtxFree(de_ctx);
     PASS;
 }
@@ -1633,7 +1654,7 @@ static int IPOnlyTestSig03 (void)
         printf("got a IPOnly signature (content): ");
         result=0;
     }
-    SigFree(s);
+    SigFree(de_ctx, s);
 
     /* content */
     s = SigInit(de_ctx,"alert tcp any any -> any any (msg:\"SigTest40-03 sig is not IPOnly (content) \"; content:\"match something\"; classtype:misc-activity; sid:400001; rev:1;)");
@@ -1645,7 +1666,7 @@ static int IPOnlyTestSig03 (void)
         printf("got a IPOnly signature (content): ");
         result=0;
     }
-    SigFree(s);
+    SigFree(de_ctx, s);
 
     /* uricontent */
     s = SigInit(de_ctx,"alert tcp any any -> any any (msg:\"SigTest40-03 sig is not IPOnly (uricontent) \"; uricontent:\"match something\"; classtype:misc-activity; sid:400001; rev:1;)");
@@ -1657,7 +1678,7 @@ static int IPOnlyTestSig03 (void)
         printf("got a IPOnly signature (uricontent): ");
         result=0;
     }
-    SigFree(s);
+    SigFree(de_ctx, s);
 
     /* pcre */
     s = SigInit(de_ctx,"alert tcp any any -> any any (msg:\"SigTest40-03 sig is not IPOnly (pcre) \"; pcre:\"/e?idps rule[sz]/i\"; classtype:misc-activity; sid:400001; rev:1;)");
@@ -1669,7 +1690,7 @@ static int IPOnlyTestSig03 (void)
         printf("got a IPOnly signature (pcre): ");
         result=0;
     }
-    SigFree(s);
+    SigFree(de_ctx, s);
 
     /* flow */
     s = SigInit(de_ctx,"alert tcp any any -> any any (msg:\"SigTest40-03 sig is not IPOnly (flow) \"; flow:to_server; classtype:misc-activity; sid:400001; rev:1;)");
@@ -1681,7 +1702,7 @@ static int IPOnlyTestSig03 (void)
         printf("got a IPOnly signature (flow): ");
         result=0;
     }
-    SigFree(s);
+    SigFree(de_ctx, s);
 
     /* dsize */
     s = SigInit(de_ctx,"alert tcp any any -> any any (msg:\"SigTest40-03 sig is not IPOnly (dsize) \"; dsize:100; classtype:misc-activity; sid:400001; rev:1;)");
@@ -1693,7 +1714,7 @@ static int IPOnlyTestSig03 (void)
         printf("got a IPOnly signature (dsize): ");
         result=0;
     }
-    SigFree(s);
+    SigFree(de_ctx, s);
 
     /* flowbits */
     s = SigInit(de_ctx,"alert tcp any any -> any any (msg:\"SigTest40-03 sig is not IPOnly (flowbits) \"; flowbits:unset; classtype:misc-activity; sid:400001; rev:1;)");
@@ -1705,7 +1726,7 @@ static int IPOnlyTestSig03 (void)
         printf("got a IPOnly signature (flowbits): ");
         result=0;
     }
-    SigFree(s);
+    SigFree(de_ctx, s);
 
     /* flowvar */
     s = SigInit(de_ctx,"alert tcp any any -> any any (msg:\"SigTest40-03 sig is not IPOnly (flowvar) \"; pcre:\"/(?<flow_var>.*)/i\"; flowvar:var,\"str\"; classtype:misc-activity; sid:400001; rev:1;)");
@@ -1717,7 +1738,7 @@ static int IPOnlyTestSig03 (void)
         printf("got a IPOnly signature (flowvar): ");
         result=0;
     }
-    SigFree(s);
+    SigFree(de_ctx, s);
 
     /* pktvar */
     s = SigInit(de_ctx,"alert tcp any any -> any any (msg:\"SigTest40-03 sig is not IPOnly (pktvar) \"; pcre:\"/(?<pkt_var>.*)/i\"; pktvar:var,\"str\"; classtype:misc-activity; sid:400001; rev:1;)");
@@ -1729,7 +1750,7 @@ static int IPOnlyTestSig03 (void)
         printf("got a IPOnly signature (pktvar): ");
         result=0;
     }
-    SigFree(s);
+    SigFree(de_ctx, s);
 
 end:
     if (de_ctx != NULL)
@@ -2124,7 +2145,7 @@ static int IPOnlyTestSig13(void)
     FAIL_IF(s == NULL);
 
     FAIL_IF(SignatureIsIPOnly(de_ctx, s) == 0);
-    SigFree(s);
+    SigFree(de_ctx, s);
     DetectEngineCtxFree(de_ctx);
     PASS;
 }
@@ -2141,7 +2162,7 @@ static int IPOnlyTestSig14(void)
     FAIL_IF(s == NULL);
 
     FAIL_IF(SignatureIsIPOnly(de_ctx, s) == 1);
-    SigFree(s);
+    SigFree(de_ctx, s);
     DetectEngineCtxFree(de_ctx);
     PASS;
 }
@@ -2258,6 +2279,45 @@ static int IPOnlyTestSig17(void)
     return result;
 }
 
+/**
+ * \brief Unittest to show #3568 -- IP address range handling
+ */
+static int IPOnlyTestSig18(void)
+{
+    int result = 0;
+    uint8_t *buf = (uint8_t *)"Hi all!";
+    uint16_t buflen = strlen((char *)buf);
+
+    uint8_t numpkts = 4;
+    uint8_t numsigs = 4;
+
+    Packet *p[4];
+
+    p[0] = UTHBuildPacketSrcDst((uint8_t *)buf, buflen, IPPROTO_TCP, "10.10.10.1", "50.0.0.1");
+    p[1] = UTHBuildPacketSrcDst((uint8_t *)buf, buflen, IPPROTO_TCP, "220.10.10.1", "5.0.0.1");
+    p[2] = UTHBuildPacketSrcDst((uint8_t *)buf, buflen, IPPROTO_TCP, "0.0.0.1", "50.0.0.1");
+    p[3] = UTHBuildPacketSrcDst((uint8_t *)buf, buflen, IPPROTO_TCP, "255.255.255.254", "5.0.0.1");
+
+    const char *sigs[numsigs];
+    // really many IP addresses
+    sigs[0]= "alert ip 1.2.3.4-219.6.7.8 any -> any any (sid:1;)";
+    sigs[1]= "alert ip 51.2.3.4-253.1.2.3 any -> any any (sid:2;)";
+    sigs[2]= "alert ip 0.0.0.0-50.0.0.2 any -> any any (sid:3;)";
+    sigs[3]= "alert ip 50.0.0.0-255.255.255.255 any -> any any (sid:4;)";
+
+    uint32_t sid[4] = { 1, 2, 3, 4, };
+    uint32_t results[4][4] = {
+        { 1, 0, 1, 0, }, { 0, 1, 0, 1}, { 0, 0, 1, 0 }, { 0, 0, 0, 1}};
+
+    result = UTHGenericTest(p, numpkts, sigs, sid, (uint32_t *) results, numsigs);
+
+    UTHFreePackets(p, numpkts);
+
+    FAIL_IF(result != 1);
+
+    PASS;
+}
+
 #endif /* UNITTESTS */
 
 void IPOnlyRegisterTests(void)
@@ -2293,6 +2353,7 @@ void IPOnlyRegisterTests(void)
     UtRegisterTest("IPOnlyTestSig16", IPOnlyTestSig16);
 
     UtRegisterTest("IPOnlyTestSig17", IPOnlyTestSig17);
+    UtRegisterTest("IPOnlyTestSig18", IPOnlyTestSig18);
 #endif
 
     return;

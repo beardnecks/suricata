@@ -43,7 +43,7 @@ static int DetectRfbSecresultMatch(DetectEngineThreadCtx *det_ctx,
                                    const SigMatchCtx *ctx);
 static int DetectRfbSecresultSetup (DetectEngineCtx *, Signature *, const char *);
 void RfbSecresultRegisterTests(void);
-void DetectRfbSecresultFree(void *);
+void DetectRfbSecresultFree(DetectEngineCtx *, void *);
 
 static int DetectEngineInspectRfbSecresultGeneric(ThreadVars *tv,
         DetectEngineCtx *de_ctx, DetectEngineThreadCtx *det_ctx,
@@ -62,7 +62,7 @@ void DetectRfbSecresultRegister (void)
 {
     sigmatch_table[DETECT_AL_RFB_SECRESULT].name = "rfb.secresult";
     sigmatch_table[DETECT_AL_RFB_SECRESULT].desc = "match RFB security result";
-    sigmatch_table[DETECT_AL_RFB_SECRESULT].url = DOC_URL DOC_VERSION "/rules/rfb-keywords.html#rfb-secresult";
+    sigmatch_table[DETECT_AL_RFB_SECRESULT].url = "/rules/rfb-keywords.html#rfb-secresult";
     sigmatch_table[DETECT_AL_RFB_SECRESULT].AppLayerTxMatch = DetectRfbSecresultMatch;
     sigmatch_table[DETECT_AL_RFB_SECRESULT].Setup = DetectRfbSecresultSetup;
     sigmatch_table[DETECT_AL_RFB_SECRESULT].Free  = DetectRfbSecresultFree;
@@ -250,7 +250,7 @@ error:
  *
  * \param de pointer to DetectRfbSecresultData
  */
-void DetectRfbSecresultFree(void *de_ptr)
+void DetectRfbSecresultFree(DetectEngineCtx *de_ctx, void *de_ptr)
 {
     DetectRfbSecresultData *de = (DetectRfbSecresultData *)de_ptr;
     if(de) SCFree(de);
@@ -272,7 +272,7 @@ static int RfbSecresultTestParse01 (void)
     DetectRfbSecresultData *de = NULL;
     de = DetectRfbSecresultParse("fail");
     if (de) {
-        DetectRfbSecresultFree(de);
+        DetectRfbSecresultFree(NULL, de);
         return 1;
     }
 
@@ -290,7 +290,7 @@ static int RfbSecresultTestParse02 (void)
     DetectRfbSecresultData *de = NULL;
     de = DetectRfbSecresultParse("invalidopt");
     if (de) {
-        DetectRfbSecresultFree(de);
+        DetectRfbSecresultFree(NULL, de);
         return 0;
     }
 

@@ -66,7 +66,7 @@ static int DetectFilestoreMatch (DetectEngineThreadCtx *,
 static int DetectFilestorePostMatch(DetectEngineThreadCtx *det_ctx,
         Packet *p, const Signature *s, const SigMatchCtx *ctx);
 static int DetectFilestoreSetup (DetectEngineCtx *, Signature *, const char *);
-static void DetectFilestoreFree(void *);
+static void DetectFilestoreFree(DetectEngineCtx *, void *);
 static void DetectFilestoreRegisterTests(void);
 static int g_file_match_list_id = 0;
 
@@ -77,7 +77,7 @@ void DetectFilestoreRegister(void)
 {
     sigmatch_table[DETECT_FILESTORE].name = "filestore";
     sigmatch_table[DETECT_FILESTORE].desc = "stores files to disk if the rule matched";
-    sigmatch_table[DETECT_FILESTORE].url = DOC_URL DOC_VERSION "/rules/file-keywords.html#filestore";
+    sigmatch_table[DETECT_FILESTORE].url = "/rules/file-keywords.html#filestore";
     sigmatch_table[DETECT_FILESTORE].FileMatch = DetectFilestoreMatch;
     sigmatch_table[DETECT_FILESTORE].Setup = DetectFilestoreSetup;
     sigmatch_table[DETECT_FILESTORE].Free  = DetectFilestoreFree;
@@ -475,7 +475,7 @@ error:
     return -1;
 }
 
-static void DetectFilestoreFree(void *ptr)
+static void DetectFilestoreFree(DetectEngineCtx *de_ctx, void *ptr)
 {
     if (ptr != NULL) {
         SCFree(ptr);

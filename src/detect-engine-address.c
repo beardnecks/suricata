@@ -1,4 +1,4 @@
-/* Copyright (C) 2007-2010 Open Information Security Foundation
+/* Copyright (C) 2007-2020 Open Information Security Foundation
  *
  * You can copy, redistribute or modify this Program under the terms of
  * the GNU General Public License version 2 as published by the Free
@@ -21,9 +21,6 @@
  * \author Victor Julien <victor@inliniac.net>
  *
  * Address part of the detection engine.
- *
- * \todo Move this out of the detection plugin structure
- *       rename to detect-engine-address.c
  */
 
 #include "suricata-common.h"
@@ -44,6 +41,7 @@
 #include "detect-engine-port.h"
 
 #include "util-debug.h"
+#include "util-byte.h"
 #include "util-print.h"
 #include "util-var.h"
 
@@ -83,7 +81,6 @@ void DetectAddressFree(DetectAddress *ag)
         return;
 
     SCFree(ag);
-
     return;
 }
 
@@ -473,20 +470,18 @@ static int DetectAddressParseString(DetectAddress *dd, const char *str)
             mask++;
             uint32_t ip4addr = 0;
             uint32_t netmask = 0;
-            size_t u = 0;
 
             if ((strchr (mask, '.')) == NULL) {
                 /* 1.2.3.4/24 format */
 
-                for (u = 0; u < strlen(mask); u++) {
+                for (size_t u = 0; u < strlen(mask); u++) {
                     if(!isdigit((unsigned char)mask[u]))
                         goto error;
                 }
 
-                int cidr = atoi(mask);
-                if (cidr < 0 || cidr > 32)
+                int cidr;
+                if (StringParseI32RangeCheck(&cidr, 10, 0, (const char *)mask, 0, 32) < 0)
                     goto error;
-
                 netmask = CIDRGet(cidr);
             } else {
                 /* 1.2.3.4/255.255.255.0 format */
@@ -543,9 +538,9 @@ static int DetectAddressParseString(DetectAddress *dd, const char *str)
             ip[mask - ip] = '\0';
             mask++;
 
-            int cidr = atoi(mask);
-            if (cidr < 0 || cidr > 128)
-                    goto error;
+            int cidr;
+            if (StringParseI32RangeCheck(&cidr, 10, 0, (const char *)mask, 0, 128) < 0)
+                goto error;
 
             r = inet_pton(AF_INET6, ip, &in6);
             if (r <= 0)
@@ -740,7 +735,8 @@ static int DetectAddressSetup(DetectAddressHead *gh, const char *s)
  */
 static int DetectAddressParse2(const DetectEngineCtx *de_ctx,
         DetectAddressHead *gh, DetectAddressHead *ghn,
-        const char *s, int negate, ResolvedVariablesList *var_list)
+        const char *s, int negate, ResolvedVariablesList *var_list,
+        int recur)
 {
     size_t x = 0;
     size_t u = 0;
@@ -750,6 +746,12 @@ static int DetectAddressParse2(const DetectEngineCtx *de_ctx,
     char address[8196] = "";
     const char *rule_var_address = NULL;
     char *temp_rule_var_address = NULL;
+
+    if (++recur > 64) {
+        SCLogError(SC_ERR_ADDRESS_ENGINE_GENERIC, "address block recursion "
+                "limit reached (max 64)");
+        goto error;
+    }
 
     SCLogDebug("s %s negate %s", s, negate ? "true" : "false");
 
@@ -781,7 +783,7 @@ static int DetectAddressParse2(const DetectEngineCtx *de_ctx,
                     /* normal block */
                     SCLogDebug("normal block");
 
-                    if (DetectAddressParse2(de_ctx, gh, ghn, address, (negate + n_set) % 2, var_list) < 0)
+                    if (DetectAddressParse2(de_ctx, gh, ghn, address, (negate + n_set) % 2, var_list, recur) < 0)
                         goto error;
                 } else {
                     /* negated block
@@ -794,7 +796,7 @@ static int DetectAddressParse2(const DetectEngineCtx *de_ctx,
                     DetectAddressHead tmp_gh = { NULL, NULL };
                     DetectAddressHead tmp_ghn = { NULL, NULL };
 
-                    if (DetectAddressParse2(de_ctx, &tmp_gh, &tmp_ghn, address, 0, var_list) < 0) {
+                    if (DetectAddressParse2(de_ctx, &tmp_gh, &tmp_ghn, address, 0, var_list, recur) < 0) {
                         DetectAddressHeadCleanup(&tmp_gh);
                         DetectAddressHeadCleanup(&tmp_ghn);
                         goto error;
@@ -894,7 +896,7 @@ static int DetectAddressParse2(const DetectEngineCtx *de_ctx,
 
 
                 if (DetectAddressParse2(de_ctx, gh, ghn, temp_rule_var_address,
-                                    (negate + n_set) % 2, var_list) < 0)
+                                    (negate + n_set) % 2, var_list, recur) < 0)
                 {
                     if (temp_rule_var_address != rule_var_address)
                         SCFree(temp_rule_var_address);
@@ -962,7 +964,7 @@ static int DetectAddressParse2(const DetectEngineCtx *de_ctx,
                 }
 
                 if (DetectAddressParse2(de_ctx, gh, ghn, temp_rule_var_address,
-                                    (negate + n_set) % 2, var_list) < 0) {
+                                    (negate + n_set) % 2, var_list, recur) < 0) {
                     SCLogDebug("DetectAddressParse2 hates us");
                     if (temp_rule_var_address != rule_var_address)
                         SCFree(temp_rule_var_address);
@@ -1256,7 +1258,7 @@ int DetectAddressTestConfVars(void)
             goto error;
         }
 
-        int r = DetectAddressParse2(NULL, gh, ghn, seq_node->val, /* start with negate no */0, &var_list);
+        int r = DetectAddressParse2(NULL, gh, ghn, seq_node->val, /* start with negate no */0, &var_list, 0);
 
         CleanVariableResolveList(&var_list);
 
@@ -1390,6 +1392,7 @@ static const DetectAddressMap *DetectAddressMapLookup(DetectEngineCtx *de_ctx,
  *        DetectAddressHead sent as the argument with the relevant address
  *        ranges from the parsed string.
  *
+ * \param de_ctx Pointer to the detection engine context
  * \param gh  Pointer to the DetectAddressHead.
  * \param str Pointer to the character string containing the address group
  *            that has to be parsed.
@@ -1414,7 +1417,7 @@ int DetectAddressParse(const DetectEngineCtx *de_ctx,
         return -1;
     }
 
-    int r = DetectAddressParse2(de_ctx, gh, ghn, str, /* start with negate no */0, NULL);
+    int r = DetectAddressParse2(de_ctx, gh, ghn, str, /* start with negate no */0, NULL, 0);
     if (r < 0) {
         SCLogDebug("DetectAddressParse2 returned %d", r);
         DetectAddressHeadFree(ghn);
@@ -2292,6 +2295,32 @@ static int AddressTestParse25(void)
     FAIL_IF_NULL(gh);
     int r = DetectAddressParse(NULL, gh, "ANY");
     FAIL_IF_NOT(r == 0);
+    DetectAddressHeadFree(gh);
+    PASS;
+}
+
+/** \test recursion limit */
+static int AddressTestParse26(void)
+{
+    DetectAddressHead *gh = DetectAddressHeadInit();
+    FAIL_IF_NULL(gh);
+    /* exactly 64: should pass */
+    int r = DetectAddressParse(NULL, gh,
+            "[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[["
+            "1.2.3.4"
+            "]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]"
+            );
+    FAIL_IF_NOT(r == 0);
+    DetectAddressHeadFree(gh);
+    gh = DetectAddressHeadInit();
+    FAIL_IF_NULL(gh);
+    /* exactly 65: should fail */
+    r = DetectAddressParse(NULL, gh,
+            "[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[["
+            "1.2.3.4"
+            "]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]"
+            );
+    FAIL_IF(r == 0);
     DetectAddressHeadFree(gh);
     PASS;
 }
@@ -4832,6 +4861,7 @@ void DetectAddressTests(void)
     UtRegisterTest("AddressTestParse23", AddressTestParse23);
     UtRegisterTest("AddressTestParse24", AddressTestParse24);
     UtRegisterTest("AddressTestParse25", AddressTestParse25);
+    UtRegisterTest("AddressTestParse26", AddressTestParse26);
     UtRegisterTest("AddressTestParse27", AddressTestParse27);
     UtRegisterTest("AddressTestParse28", AddressTestParse28);
     UtRegisterTest("AddressTestParse29", AddressTestParse29);

@@ -1,4 +1,4 @@
-/* Copyright (C) 2007-2019 Open Information Security Foundation
+/* Copyright (C) 2007-2020 Open Information Security Foundation
  *
  * You can copy, redistribute or modify this Program under the terms of
  * the GNU General Public License version 2 as published by the Free
@@ -664,7 +664,7 @@ next:
  *  double freeing, so it takes an approach to first fill an array
  *  of the to-free pointers before freeing them.
  */
-void DetectEngineAppInspectionEngineSignatureFree(Signature *s)
+void DetectEngineAppInspectionEngineSignatureFree(DetectEngineCtx *de_ctx, Signature *s)
 {
     int nlists = 0;
 
@@ -712,7 +712,7 @@ void DetectEngineAppInspectionEngineSignatureFree(Signature *s)
         SigMatchData *smd = ptrs[i];
         while(1) {
             if (sigmatch_table[smd->type].Free != NULL) {
-                sigmatch_table[smd->type].Free(smd->ctx);
+                sigmatch_table[smd->type].Free(de_ctx, smd->ctx);
             }
             if (smd->is_last)
                 break;
@@ -2307,7 +2307,15 @@ static int DetectEngineCtxLoadConf(DetectEngineCtx *de_ctx)
             }
 
             if (insp_recursion_limit != NULL) {
-                de_ctx->inspection_recursion_limit = atoi(insp_recursion_limit);
+                if (StringParseInt32(&de_ctx->inspection_recursion_limit, 10,
+                                     0, (const char *)insp_recursion_limit) < 0) {
+                    SCLogWarning(SC_ERR_INVALID_VALUE, "Invalid value for "
+                                 "detect-engine.inspection-recursion-limit: %s "
+                                 "resetting to %d", insp_recursion_limit,
+                                 DETECT_ENGINE_DEFAULT_INSPECTION_RECURSION_LIMIT);
+                    de_ctx->inspection_recursion_limit =
+                        DETECT_ENGINE_DEFAULT_INSPECTION_RECURSION_LIMIT;
+                }
             } else {
                 de_ctx->inspection_recursion_limit =
                     DETECT_ENGINE_DEFAULT_INSPECTION_RECURSION_LIMIT;
@@ -3004,6 +3012,43 @@ int DetectRegisterThreadCtxFuncs(DetectEngineCtx *de_ctx, const char *name, void
     return item->id;
 }
 
+/** \brief Remove Thread keyword context registration
+ *
+ *  \param de_ctx detection engine to deregister from
+ *  \param det_ctx detection engine thread context to deregister from
+ *  \param data keyword init data to pass to Func. Can be NULL.
+ *  \param name keyword name for error printing
+ *
+ *  \retval 1 Item unregistered
+ *  \retval 0 otherwise
+ *
+ *  \note make sure "data" remains valid and it free'd elsewhere. It's
+ *        recommended to store it in the keywords global ctx so that
+ *        it's freed when the de_ctx is freed.
+ */
+int DetectUnregisterThreadCtxFuncs(DetectEngineCtx *de_ctx,
+        DetectEngineThreadCtx *det_ctx, void *data, const char *name)
+{
+    BUG_ON(de_ctx == NULL);
+
+    DetectEngineThreadKeywordCtxItem *item = de_ctx->keyword_list;
+    DetectEngineThreadKeywordCtxItem *prev_item = NULL;
+    while (item != NULL) {
+        if (strcmp(name, item->name) == 0 && (data == item->data)) {
+            if (prev_item == NULL)
+                de_ctx->keyword_list = item->next;
+            else
+                prev_item->next = item->next;
+            if (det_ctx)
+                item->FreeFunc(det_ctx->keyword_ctxs_array[item->id]);
+            SCFree(item);
+            return 1;
+        }
+        prev_item = item;
+        item = item->next;
+    }
+    return 0;
+}
 /** \brief Retrieve thread local keyword ctx by id
  *
  *  \param det_ctx detection engine thread ctx to retrieve the ctx from
@@ -4262,7 +4307,7 @@ static int DetectEngineTest02(void)
     if (de_ctx == NULL)
         goto end;
 
-    result = (de_ctx->inspection_recursion_limit == -1);
+    result = (de_ctx->inspection_recursion_limit == DETECT_ENGINE_DEFAULT_INSPECTION_RECURSION_LIMIT);
 
  end:
     if (de_ctx != NULL)

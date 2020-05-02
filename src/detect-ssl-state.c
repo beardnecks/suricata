@@ -64,7 +64,7 @@ static int DetectSslStateSetup(DetectEngineCtx *, Signature *, const char *);
 #ifdef UNITTESTS
 static void DetectSslStateRegisterTests(void);
 #endif
-static void DetectSslStateFree(void *);
+static void DetectSslStateFree(DetectEngineCtx *, void *);
 
 static int InspectTlsGeneric(ThreadVars *tv,
         DetectEngineCtx *de_ctx, DetectEngineThreadCtx *det_ctx,
@@ -81,7 +81,7 @@ void DetectSslStateRegister(void)
 {
     sigmatch_table[DETECT_AL_SSL_STATE].name = "ssl_state";
     sigmatch_table[DETECT_AL_SSL_STATE].desc = "match the state of the SSL connection";
-    sigmatch_table[DETECT_AL_SSL_STATE].url = DOC_URL DOC_VERSION "/rules/tls-keywords.html#ssl-state";
+    sigmatch_table[DETECT_AL_SSL_STATE].url = "/rules/tls-keywords.html#ssl-state";
     sigmatch_table[DETECT_AL_SSL_STATE].AppLayerTxMatch = DetectSslStateMatch;
     sigmatch_table[DETECT_AL_SSL_STATE].Setup = DetectSslStateSetup;
     sigmatch_table[DETECT_AL_SSL_STATE].Free  = DetectSslStateFree;
@@ -321,7 +321,7 @@ static int DetectSslStateSetup(DetectEngineCtx *de_ctx, Signature *s, const char
 
 error:
     if (ssd != NULL)
-        DetectSslStateFree(ssd);
+        DetectSslStateFree(de_ctx, ssd);
     if (sm != NULL)
         SCFree(sm);
     return -1;
@@ -332,7 +332,7 @@ error:
  *
  * \param ptr pointer to the data to be freed.
  */
-static void DetectSslStateFree(void *ptr)
+static void DetectSslStateFree(DetectEngineCtx *de_ctx, void *ptr)
 {
     if (ptr != NULL)
         SCFree(ptr);

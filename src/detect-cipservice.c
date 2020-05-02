@@ -40,7 +40,7 @@
  * \brief CIP Service Detect Prototypes
  */
 static int DetectCipServiceSetup(DetectEngineCtx *, Signature *, const char *);
-static void DetectCipServiceFree(void *);
+static void DetectCipServiceFree(DetectEngineCtx *, void *);
 static void DetectCipServiceRegisterTests(void);
 static int g_cip_buffer_id = 0;
 
@@ -52,7 +52,7 @@ void DetectCipServiceRegister(void)
     SCEnter();
     sigmatch_table[DETECT_CIPSERVICE].name = "cip_service"; //rule keyword
     sigmatch_table[DETECT_CIPSERVICE].desc = "match on CIP Service";
-    sigmatch_table[DETECT_CIPSERVICE].url = DOC_URL DOC_VERSION "/rules/enip-keyword.html#enip-cip-keywords";
+    sigmatch_table[DETECT_CIPSERVICE].url = "/rules/enip-keyword.html#enip-cip-keywords";
     sigmatch_table[DETECT_CIPSERVICE].Match = NULL;
     sigmatch_table[DETECT_CIPSERVICE].Setup = DetectCipServiceSetup;
     sigmatch_table[DETECT_CIPSERVICE].Free = DetectCipServiceFree;
@@ -227,7 +227,7 @@ static int DetectCipServiceSetup(DetectEngineCtx *de_ctx, Signature *s,
 
 error:
     if (cipserviced != NULL)
-        DetectCipServiceFree(cipserviced);
+        DetectCipServiceFree(de_ctx, cipserviced);
     if (sm != NULL)
         SCFree(sm);
     SCReturnInt(-1);
@@ -238,7 +238,7 @@ error:
  *
  * \param ptr pointer to DetectCipServiceData
  */
-static void DetectCipServiceFree(void *ptr)
+static void DetectCipServiceFree(DetectEngineCtx *de_ctx, void *ptr)
 {
     DetectCipServiceData *cipserviced = (DetectCipServiceData *) ptr;
     SCFree(cipserviced);
@@ -255,7 +255,7 @@ static int DetectCipServiceParseTest01 (void)
     cipserviced = DetectCipServiceParse("7");
     FAIL_IF_NULL(cipserviced);
     FAIL_IF(cipserviced->cipservice != 7);
-    DetectCipServiceFree(cipserviced);
+    DetectCipServiceFree(NULL, cipserviced);
     PASS;
 }
 
@@ -295,7 +295,7 @@ static void DetectCipServiceRegisterTests(void)
  * \brief ENIP Commond Detect Prototypes
  */
 static int DetectEnipCommandSetup(DetectEngineCtx *, Signature *, const char *);
-static void DetectEnipCommandFree(void *);
+static void DetectEnipCommandFree(DetectEngineCtx *, void *);
 static void DetectEnipCommandRegisterTests(void);
 static int g_enip_buffer_id = 0;
 
@@ -307,7 +307,7 @@ void DetectEnipCommandRegister(void)
     sigmatch_table[DETECT_ENIPCOMMAND].name = "enip_command"; //rule keyword
     sigmatch_table[DETECT_ENIPCOMMAND].desc
             = "rules for detecting EtherNet/IP command";
-    sigmatch_table[DETECT_ENIPCOMMAND].url = DOC_URL DOC_VERSION "/rules/enip-keyword.html#enip-cip-keywords";
+    sigmatch_table[DETECT_ENIPCOMMAND].url = "/rules/enip-keyword.html#enip-cip-keywords";
     sigmatch_table[DETECT_ENIPCOMMAND].Match = NULL;
     sigmatch_table[DETECT_ENIPCOMMAND].Setup = DetectEnipCommandSetup;
     sigmatch_table[DETECT_ENIPCOMMAND].Free = DetectEnipCommandFree;
@@ -398,7 +398,7 @@ static int DetectEnipCommandSetup(DetectEngineCtx *de_ctx, Signature *s,
 
 error:
     if (enipcmdd != NULL)
-        DetectEnipCommandFree(enipcmdd);
+        DetectEnipCommandFree(de_ctx, enipcmdd);
     if (sm != NULL)
         SCFree(sm);
     SCReturnInt(-1);
@@ -409,7 +409,7 @@ error:
  *
  * \param ptr pointer to DetectEnipCommandData
  */
-static void DetectEnipCommandFree(void *ptr)
+static void DetectEnipCommandFree(DetectEngineCtx *de_ctx, void *ptr)
 {
     DetectEnipCommandData *enipcmdd = (DetectEnipCommandData *) ptr;
     SCFree(enipcmdd);
@@ -429,7 +429,7 @@ static int DetectEnipCommandParseTest01 (void)
     FAIL_IF_NULL(enipcmdd);
     FAIL_IF_NOT(enipcmdd->enipcommand == 1);
 
-    DetectEnipCommandFree(enipcmdd);
+    DetectEnipCommandFree(NULL, enipcmdd);
     PASS;
 }
 

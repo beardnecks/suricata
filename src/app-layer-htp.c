@@ -45,6 +45,7 @@
 #include "util-pool.h"
 #include "util-radix-tree.h"
 #include "util-file.h"
+#include "util-byte.h"
 
 #include "stream-tcp-private.h"
 #include "stream-tcp-reassemble.h"
@@ -86,6 +87,9 @@
 static SCRadixTree *cfgtree;
 /** List of HTP configurations. */
 static HTPCfgRec cfglist;
+
+/** Limit to the number of libhtp messages that can be handled */
+#define HTP_MAX_MESSAGES 512
 
 SC_ATOMIC_DECLARE(uint32_t, htp_config_flags);
 
@@ -197,6 +201,9 @@ SCEnumCharMap http_decoder_event_table[ ] = {
         HTTP_DECODER_EVENT_MULTIPART_NO_FILEDATA},
     { "MULTIPART_INVALID_HEADER",
         HTTP_DECODER_EVENT_MULTIPART_INVALID_HEADER},
+
+    { "TOO_MANY_WARNINGS",
+        HTTP_DECODER_EVENT_TOO_MANY_WARNINGS},
 
     { NULL,                      -1 },
 };
@@ -689,6 +696,17 @@ static void HTPHandleError(HtpState *s, const uint8_t dir)
 
     size_t size = htp_list_size(s->conn->messages);
     size_t msg;
+    if(size >= HTP_MAX_MESSAGES) {
+        if (s->htp_messages_offset < HTP_MAX_MESSAGES) {
+            //only once per HtpState
+            HTPSetEvent(s, NULL, dir, HTTP_DECODER_EVENT_TOO_MANY_WARNINGS);
+            s->htp_messages_offset = HTP_MAX_MESSAGES;
+            //too noisy in fuzzing
+            //DEBUG_VALIDATE_BUG_ON("Too many libhtp messages");
+        }
+        // ignore further messages
+        return;
+    }
 
     for (msg = s->htp_messages_offset; msg < size; msg++) {
         htp_log_t *log = htp_list_get(s->conn->messages, msg);
@@ -2778,11 +2796,12 @@ static void HTPConfigParseParameters(HTPCfgRec *cfg_prec, ConfNode *s,
                 cfg_prec->randomize = ConfValIsTrue(p->val);
             }
         } else if (strcasecmp("randomize-inspection-range", p->name) == 0) {
-            uint32_t range = atoi(p->val);
-            if (range > 100) {
-                SCLogError(SC_ERR_SIZE_PARSE, "Invalid value for randomize"
-                           " inspection range setting from conf file - %s."
-                           " It should be inferior to 100."
+            uint32_t range;
+            if (StringParseU32RangeCheck(&range, 10, 0,
+                                         (const char *)p->val, 0, 100) < 0) {
+                SCLogError(SC_ERR_INVALID_VALUE, "Invalid value for randomize"
+                           "-inspection-range setting from conf file - \"%s\"."
+                           " It should be a valid integer less than or equal to 100."
                            " Killing engine",
                            p->val);
                 exit(EXIT_FAILURE);
@@ -3514,12 +3533,17 @@ static int HTPParserTest02(void)
     }
 
     htp_tx_t *tx = HTPStateGetTx(http_state, 0);
+    FAIL_IF_NULL(tx);
     htp_header_t *h =  htp_table_get_index(tx->request_headers, 0, NULL);
-    if ((tx->request_method) != NULL || h != NULL)
-    {
-        printf("expected method NULL, got %s \n", bstr_util_strdup_to_c(tx->request_method));
-        goto end;
-    }
+    FAIL_IF_NOT_NULL(h);
+
+    FAIL_IF_NULL(tx->request_method);
+    char *method = bstr_util_strdup_to_c(tx->request_method);
+    FAIL_IF_NULL(method);
+
+    FAIL_IF(strcmp(method, "POST") != 0);
+    SCFree(method);
+
     result = 1;
 end:
     if (alp_tctx != NULL)

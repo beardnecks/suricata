@@ -34,7 +34,7 @@
 static int DetectICMPv6mtuMatch (DetectEngineThreadCtx *, Packet *,
         const Signature *, const SigMatchCtx *);
 static int DetectICMPv6mtuSetup (DetectEngineCtx *, Signature *, const char *);
-void DetectICMPv6mtuFree (void *);
+void DetectICMPv6mtuFree (DetectEngineCtx *de_ctx, void *);
 #ifdef UNITTESTS
 void DetectICMPv6mtuRegisterTests (void);
 #endif
@@ -49,7 +49,7 @@ void DetectICMPv6mtuRegister(void)
 {
     sigmatch_table[DETECT_ICMPV6MTU].name = "icmpv6.mtu";
     sigmatch_table[DETECT_ICMPV6MTU].desc = "match on ICMPv6 MTU field";
-    sigmatch_table[DETECT_ICMPV6MTU].url = DOC_URL DOC_VERSION "/rules/header-keywords.html#icmpv6mtu";
+    sigmatch_table[DETECT_ICMPV6MTU].url = "/rules/header-keywords.html#icmpv6mtu";
     sigmatch_table[DETECT_ICMPV6MTU].Match = DetectICMPv6mtuMatch;
     sigmatch_table[DETECT_ICMPV6MTU].Setup = DetectICMPv6mtuSetup;
     sigmatch_table[DETECT_ICMPV6MTU].Free = DetectICMPv6mtuFree;
@@ -118,7 +118,7 @@ static int DetectICMPv6mtuSetup (DetectEngineCtx *de_ctx, Signature *s, const ch
 
     SigMatch *sm = SigMatchAlloc();
     if (sm == NULL) {
-        DetectICMPv6mtuFree(icmpv6mtud);
+        DetectICMPv6mtuFree(de_ctx, icmpv6mtud);
         return -1;
     }
 
@@ -137,7 +137,7 @@ static int DetectICMPv6mtuSetup (DetectEngineCtx *de_ctx, Signature *s, const ch
  *
  * \param ptr pointer to DetectU32Data
  */
-void DetectICMPv6mtuFree(void *ptr)
+void DetectICMPv6mtuFree(DetectEngineCtx *de_ctx, void *ptr)
 {
     SCFree(ptr);
 }

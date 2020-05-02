@@ -72,7 +72,7 @@ void DetectFtpbounceRegister(void)
     sigmatch_table[DETECT_FTPBOUNCE].Setup = DetectFtpbounceSetup;
     sigmatch_table[DETECT_FTPBOUNCE].AppLayerTxMatch = DetectFtpbounceALMatch;
     sigmatch_table[DETECT_FTPBOUNCE].RegisterTests = DetectFtpbounceRegisterTests;
-    sigmatch_table[DETECT_FTPBOUNCE].url = DOC_URL DOC_VERSION "/rules/ftp-keywords.html#ftpbounce";
+    sigmatch_table[DETECT_FTPBOUNCE].url = "/rules/ftp-keywords.html#ftpbounce";
     sigmatch_table[DETECT_FTPBOUNCE].flags = SIGMATCH_NOOPT;
 
     g_ftp_request_list_id = DetectBufferTypeRegister("ftp_request");
@@ -269,7 +269,7 @@ static int DetectFtpbounceTestSetup01(void)
     FAIL_IF(s->sm_lists[g_ftp_request_list_id] == NULL);
     FAIL_IF_NOT(s->sm_lists[g_ftp_request_list_id]->type & DETECT_FTPBOUNCE);
 
-    SigFree(s);
+    SigFree(de_ctx, s);
     PASS;
 }
 

@@ -54,14 +54,14 @@ static DetectParseRegex parse_regex;
 static int DetectIPRepMatch (DetectEngineThreadCtx *, Packet *,
         const Signature *, const SigMatchCtx *);
 static int DetectIPRepSetup (DetectEngineCtx *, Signature *, const char *);
-void DetectIPRepFree (void *);
+void DetectIPRepFree (DetectEngineCtx *, void *);
 void IPRepRegisterTests(void);
 
 void DetectIPRepRegister (void)
 {
     sigmatch_table[DETECT_IPREP].name = "iprep";
     sigmatch_table[DETECT_IPREP].desc = "match on the IP reputation information for a host";
-    sigmatch_table[DETECT_IPREP].url = DOC_URL DOC_VERSION "/rules/ip-reputation-rules.html#iprep";
+    sigmatch_table[DETECT_IPREP].url = "/rules/ip-reputation-rules.html#iprep";
     sigmatch_table[DETECT_IPREP].Match = DetectIPRepMatch;
     sigmatch_table[DETECT_IPREP].Setup = DetectIPRepSetup;
     sigmatch_table[DETECT_IPREP].Free  = DetectIPRepFree;
@@ -375,7 +375,7 @@ error:
     return -1;
 }
 
-void DetectIPRepFree (void *ptr)
+void DetectIPRepFree (DetectEngineCtx *de_ctx, void *ptr)
 {
     DetectIPRepData *fd = (DetectIPRepData *)ptr;
 

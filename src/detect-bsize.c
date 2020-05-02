@@ -38,7 +38,7 @@
 
 /*prototypes*/
 static int DetectBsizeSetup (DetectEngineCtx *, Signature *, const char *);
-static void DetectBsizeFree (void *);
+static void DetectBsizeFree (DetectEngineCtx *, void *);
 #ifdef UNITTESTS
 static void DetectBsizeRegisterTests (void);
 #endif
@@ -51,7 +51,7 @@ void DetectBsizeRegister(void)
 {
     sigmatch_table[DETECT_BSIZE].name = "bsize";
     sigmatch_table[DETECT_BSIZE].desc = "match on the length of a buffer";
-    sigmatch_table[DETECT_BSIZE].url = DOC_URL DOC_VERSION "/rules/payload-keywords.html#bsize";
+    sigmatch_table[DETECT_BSIZE].url = "/rules/payload-keywords.html#bsize";
     sigmatch_table[DETECT_BSIZE].Match = NULL;
     sigmatch_table[DETECT_BSIZE].Setup = DetectBsizeSetup;
     sigmatch_table[DETECT_BSIZE].Free = DetectBsizeFree;
@@ -302,7 +302,7 @@ static int DetectBsizeSetup (DetectEngineCtx *de_ctx, Signature *s, const char *
     SCReturnInt(0);
 
 error:
-    DetectBsizeFree(bsz);
+    DetectBsizeFree(de_ctx, bsz);
     SCReturnInt(-1);
 }
 
@@ -311,7 +311,7 @@ error:
  *
  * \param ptr pointer to DetectBsizeData
  */
-void DetectBsizeFree(void *ptr)
+void DetectBsizeFree(DetectEngineCtx *de_ctx, void *ptr)
 {
     if (ptr == NULL)
         return;

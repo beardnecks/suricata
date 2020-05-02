@@ -176,7 +176,7 @@ error:
     return -1;
 }
 
-static void DetectAppLayerProtocolFree(void *ptr)
+static void DetectAppLayerProtocolFree(DetectEngineCtx *de_ctx, void *ptr)
 {
     SCFree(ptr);
     return;
@@ -259,7 +259,7 @@ void DetectAppLayerProtocolRegister(void)
 {
     sigmatch_table[DETECT_AL_APP_LAYER_PROTOCOL].name = "app-layer-protocol";
     sigmatch_table[DETECT_AL_APP_LAYER_PROTOCOL].desc = "match on the detected app-layer protocol";
-    sigmatch_table[DETECT_AL_APP_LAYER_PROTOCOL].url = DOC_URL DOC_VERSION "/rules/app-layer.html#app-layer-protocol";
+    sigmatch_table[DETECT_AL_APP_LAYER_PROTOCOL].url = "/rules/app-layer.html#app-layer-protocol";
     sigmatch_table[DETECT_AL_APP_LAYER_PROTOCOL].Match =
         DetectAppLayerProtocolPacketMatch;
     sigmatch_table[DETECT_AL_APP_LAYER_PROTOCOL].Setup =
@@ -288,7 +288,7 @@ static int DetectAppLayerProtocolTest01(void)
     FAIL_IF_NULL(data);
     FAIL_IF(data->alproto != ALPROTO_HTTP);
     FAIL_IF(data->negated != 0);
-    DetectAppLayerProtocolFree(data);
+    DetectAppLayerProtocolFree(NULL, data);
     PASS;
 }
 
@@ -298,7 +298,7 @@ static int DetectAppLayerProtocolTest02(void)
     FAIL_IF_NULL(data);
     FAIL_IF(data->alproto != ALPROTO_HTTP);
     FAIL_IF(data->negated == 0);
-    DetectAppLayerProtocolFree(data);
+    DetectAppLayerProtocolFree(NULL, data);
     PASS;
 }
 
@@ -459,7 +459,7 @@ static int DetectAppLayerProtocolTest11(void)
     FAIL_IF_NULL(data);
     FAIL_IF(data->alproto != ALPROTO_FAILED);
     FAIL_IF(data->negated != 0);
-    DetectAppLayerProtocolFree(data);
+    DetectAppLayerProtocolFree(NULL, data);
     PASS;
 }
 
@@ -469,7 +469,7 @@ static int DetectAppLayerProtocolTest12(void)
     FAIL_IF_NULL(data);
     FAIL_IF(data->alproto != ALPROTO_FAILED);
     FAIL_IF(data->negated == 0);
-    DetectAppLayerProtocolFree(data);
+    DetectAppLayerProtocolFree(NULL, data);
     PASS;
 }
 

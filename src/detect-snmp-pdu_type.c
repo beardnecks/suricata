@@ -43,7 +43,7 @@ typedef struct DetectSNMPPduTypeData_ {
 
 static DetectSNMPPduTypeData *DetectSNMPPduTypeParse (const char *);
 static int DetectSNMPPduTypeSetup (DetectEngineCtx *, Signature *s, const char *str);
-static void DetectSNMPPduTypeFree(void *);
+static void DetectSNMPPduTypeFree(DetectEngineCtx *, void *);
 #ifdef UNITTESTS
 static void DetectSNMPPduTypeRegisterTests(void);
 #endif
@@ -63,7 +63,7 @@ void DetectSNMPPduTypeRegister(void)
 {
     sigmatch_table[DETECT_AL_SNMP_PDU_TYPE].name = "snmp.pdu_type";
     sigmatch_table[DETECT_AL_SNMP_PDU_TYPE].desc = "match SNMP PDU type";
-    sigmatch_table[DETECT_AL_SNMP_PDU_TYPE].url = DOC_URL DOC_VERSION "/rules/snmp-keywords.html#snmp-pdu-type";
+    sigmatch_table[DETECT_AL_SNMP_PDU_TYPE].url = "/rules/snmp-keywords.html#snmp-pdu-type";
     sigmatch_table[DETECT_AL_SNMP_PDU_TYPE].Match = NULL;
     sigmatch_table[DETECT_AL_SNMP_PDU_TYPE].AppLayerTxMatch = DetectSNMPPduTypeMatch;
     sigmatch_table[DETECT_AL_SNMP_PDU_TYPE].Setup = DetectSNMPPduTypeSetup;
@@ -218,7 +218,7 @@ static int DetectSNMPPduTypeSetup (DetectEngineCtx *de_ctx, Signature *s,
     return 0;
 
 error:
-    DetectSNMPPduTypeFree(dd);
+    DetectSNMPPduTypeFree(de_ctx, dd);
     return -1;
 }
 
@@ -228,7 +228,7 @@ error:
  *
  * \param de_ptr Pointer to DetectSNMPPduTypeData.
  */
-static void DetectSNMPPduTypeFree(void *ptr)
+static void DetectSNMPPduTypeFree(DetectEngineCtx *de_ctx, void *ptr)
 {
     SCFree(ptr);
 }

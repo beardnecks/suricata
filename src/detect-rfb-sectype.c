@@ -53,7 +53,7 @@ typedef struct {
 
 static DetectRfbSectypeData *DetectRfbSectypeParse (const char *);
 static int DetectRfbSectypeSetup (DetectEngineCtx *, Signature *s, const char *str);
-static void DetectRfbSectypeFree(void *);
+static void DetectRfbSectypeFree(DetectEngineCtx *, void *);
 static int g_rfb_sectype_buffer_id = 0;
 
 static int DetectEngineInspectRfbSectypeGeneric(ThreadVars *tv,
@@ -73,7 +73,7 @@ void DetectRfbSectypeRegister (void)
 {
     sigmatch_table[DETECT_AL_RFB_SECTYPE].name = "rfb.sectype";
     sigmatch_table[DETECT_AL_RFB_SECTYPE].desc = "match RFB security type";
-    sigmatch_table[DETECT_AL_RFB_SECTYPE].url = DOC_URL DOC_VERSION "/rules/rfb-keywords.html#rfb-sectype";
+    sigmatch_table[DETECT_AL_RFB_SECTYPE].url = "/rules/rfb-keywords.html#rfb-sectype";
     sigmatch_table[DETECT_AL_RFB_SECTYPE].AppLayerTxMatch = DetectRfbSectypeMatch;
     sigmatch_table[DETECT_AL_RFB_SECTYPE].Setup = DetectRfbSectypeSetup;
     sigmatch_table[DETECT_AL_RFB_SECTYPE].Free = DetectRfbSectypeFree;
@@ -267,7 +267,7 @@ static int DetectRfbSectypeSetup (DetectEngineCtx *de_ctx, Signature *s, const c
     return 0;
 
 error:
-    DetectRfbSectypeFree(dd);
+    DetectRfbSectypeFree(de_ctx, dd);
     return -1;
 }
 
@@ -277,7 +277,7 @@ error:
  *
  * \param de_ptr Pointer to DetectRfbSectypeData.
  */
-static void DetectRfbSectypeFree(void *ptr)
+static void DetectRfbSectypeFree(DetectEngineCtx *de_ctx, void *ptr)
 {
     SCFree(ptr);
 }

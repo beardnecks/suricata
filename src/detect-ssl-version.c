@@ -66,7 +66,7 @@ static int DetectSslVersionSetup(DetectEngineCtx *, Signature *, const char *);
 #ifdef UNITTESTS
 static void DetectSslVersionRegisterTests(void);
 #endif
-static void DetectSslVersionFree(void *);
+static void DetectSslVersionFree(DetectEngineCtx *, void *);
 static int g_tls_generic_list_id = 0;
 
 /**
@@ -76,7 +76,7 @@ void DetectSslVersionRegister(void)
 {
     sigmatch_table[DETECT_AL_SSL_VERSION].name = "ssl_version";
     sigmatch_table[DETECT_AL_SSL_VERSION].desc = "match version of SSL/TLS record";
-    sigmatch_table[DETECT_AL_SSL_VERSION].url = DOC_URL DOC_VERSION "/rules/tls-keywords.html#ssl-version";
+    sigmatch_table[DETECT_AL_SSL_VERSION].url = "/rules/tls-keywords.html#ssl-version";
     sigmatch_table[DETECT_AL_SSL_VERSION].AppLayerTxMatch = DetectSslVersionMatch;
     sigmatch_table[DETECT_AL_SSL_VERSION].Setup = DetectSslVersionSetup;
     sigmatch_table[DETECT_AL_SSL_VERSION].Free  = DetectSslVersionFree;
@@ -186,12 +186,13 @@ static int DetectSslVersionMatch(DetectEngineThreadCtx *det_ctx,
  * \brief This function is used to parse ssl_version data passed via
  *        keyword: "ssl_version"
  *
+ * \param de_ctx Pointer to the detection engine context
  * \param str Pointer to the user provided options
  *
  * \retval ssl pointer to DetectSslVersionData on success
  * \retval NULL on failure
  */
-static DetectSslVersionData *DetectSslVersionParse(const char *str)
+static DetectSslVersionData *DetectSslVersionParse(DetectEngineCtx *de_ctx, const char *str)
 {
     DetectSslVersionData *ssl = NULL;
     int ret = 0, res = 0;
@@ -279,7 +280,7 @@ static DetectSslVersionData *DetectSslVersionParse(const char *str)
 
 error:
     if (ssl != NULL)
-        DetectSslVersionFree(ssl);
+        DetectSslVersionFree(de_ctx, ssl);
     return NULL;
 
 }
@@ -303,7 +304,7 @@ static int DetectSslVersionSetup (DetectEngineCtx *de_ctx, Signature *s, const c
     if (DetectSignatureSetAppProto(s, ALPROTO_TLS) != 0)
         return -1;
 
-    ssl = DetectSslVersionParse(str);
+    ssl = DetectSslVersionParse(de_ctx, str);
     if (ssl == NULL)
         goto error;
 
@@ -321,7 +322,7 @@ static int DetectSslVersionSetup (DetectEngineCtx *de_ctx, Signature *s, const c
 
 error:
     if (ssl != NULL)
-        DetectSslVersionFree(ssl);
+        DetectSslVersionFree(de_ctx, ssl);
     if (sm != NULL)
         SCFree(sm);
     return -1;
@@ -332,7 +333,7 @@ error:
  *
  * \param id_d pointer to DetectSslVersionData
  */
-void DetectSslVersionFree(void *ptr)
+void DetectSslVersionFree(DetectEngineCtx *de_ctx, void *ptr)
 {
     if (ptr != NULL)
         SCFree(ptr);

@@ -33,7 +33,7 @@ static const char decode_pattern[] = "\\s*(bytes\\s+(\\d+),?)?"
 static DetectParseRegex decode_pcre;
 
 static int DetectBase64DecodeSetup(DetectEngineCtx *, Signature *, const char *);
-static void DetectBase64DecodeFree(void *);
+static void DetectBase64DecodeFree(DetectEngineCtx *, void *);
 static void DetectBase64DecodeRegisterTests(void);
 
 void DetectBase64DecodeRegister(void)
@@ -42,7 +42,7 @@ void DetectBase64DecodeRegister(void)
     sigmatch_table[DETECT_BASE64_DECODE].desc =
         "Decodes base64 encoded data.";
     sigmatch_table[DETECT_BASE64_DECODE].url =
-        DOC_URL DOC_VERSION "/rules/base64-keywords.html#base64-decode";
+        "/rules/base64-keywords.html#base64-decode";
     sigmatch_table[DETECT_BASE64_DECODE].Setup = DetectBase64DecodeSetup;
     sigmatch_table[DETECT_BASE64_DECODE].Free = DetectBase64DecodeFree;
     sigmatch_table[DETECT_BASE64_DECODE].RegisterTests =
@@ -239,7 +239,7 @@ error:
     return -1;
 }
 
-static void DetectBase64DecodeFree(void *ptr)
+static void DetectBase64DecodeFree(DetectEngineCtx *de_ctx, void *ptr)
 {
     DetectBase64Decode *data = ptr;
     SCFree(data);

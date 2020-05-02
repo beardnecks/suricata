@@ -41,7 +41,7 @@ void DetectMsgRegister (void)
 {
     sigmatch_table[DETECT_MSG].name = "msg";
     sigmatch_table[DETECT_MSG].desc = "information about the rule and the possible alert";
-    sigmatch_table[DETECT_MSG].url = DOC_URL DOC_VERSION "/rules/meta.html#msg-message";
+    sigmatch_table[DETECT_MSG].url = "/rules/meta.html#msg-message";
     sigmatch_table[DETECT_MSG].Match = NULL;
     sigmatch_table[DETECT_MSG].Setup = DetectMsgSetup;
     sigmatch_table[DETECT_MSG].Free = NULL;
@@ -143,7 +143,7 @@ static int DetectMsgParseTest01(void)
     result = 1;
 end:
     if (sig != NULL)
-        SigFree(sig);
+        SigFree(de_ctx, sig);
     if (de_ctx != NULL)
         DetectEngineCtxFree(de_ctx);
     return result;
@@ -170,7 +170,7 @@ static int DetectMsgParseTest02(void)
     result = 1;
 end:
     if (sig != NULL)
-        SigFree(sig);
+        SigFree(de_ctx, sig);
     if (de_ctx != NULL)
         DetectEngineCtxFree(de_ctx);
     return result;
@@ -200,7 +200,7 @@ static int DetectMsgParseTest03(void)
     result = 1;
 end:
     if (sig != NULL)
-        SigFree(sig);
+        SigFree(de_ctx, sig);
     if (de_ctx != NULL)
         DetectEngineCtxFree(de_ctx);
     return result;

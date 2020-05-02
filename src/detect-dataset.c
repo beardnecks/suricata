@@ -44,13 +44,13 @@ static DetectParseRegex parse_regex;
 int DetectDatasetMatch (ThreadVars *, DetectEngineThreadCtx *, Packet *,
         const Signature *, const SigMatchCtx *);
 static int DetectDatasetSetup (DetectEngineCtx *, Signature *, const char *);
-void DetectDatasetFree (void *);
+void DetectDatasetFree (DetectEngineCtx *, void *);
 
 void DetectDatasetRegister (void)
 {
     sigmatch_table[DETECT_DATASET].name = "dataset";
     sigmatch_table[DETECT_DATASET].desc = "match sticky buffer against datasets (experimental)";
-    sigmatch_table[DETECT_DATASET].url = DOC_URL DOC_VERSION "/rules/dataset-keywords.html#dataset";
+    sigmatch_table[DETECT_DATASET].url = "/rules/dataset-keywords.html#dataset";
     sigmatch_table[DETECT_DATASET].Setup = DetectDatasetSetup;
     sigmatch_table[DETECT_DATASET].Free  = DetectDatasetFree;
 
@@ -407,7 +407,7 @@ error:
     return -1;
 }
 
-void DetectDatasetFree (void *ptr)
+void DetectDatasetFree (DetectEngineCtx *de_ctx, void *ptr)
 {
     DetectDatasetData *fd = (DetectDatasetData *)ptr;
     if (fd == NULL)

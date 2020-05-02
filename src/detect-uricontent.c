@@ -58,7 +58,7 @@
 /* prototypes */
 static int DetectUricontentSetup (DetectEngineCtx *, Signature *, const char *);
 static void DetectUricontentRegisterTests(void);
-static void DetectUricontentFree(void *);
+static void DetectUricontentFree(DetectEngineCtx *de_ctx, void *);
 
 static int g_http_uri_buffer_id = 0;
 
@@ -69,7 +69,7 @@ void DetectUricontentRegister (void)
 {
     sigmatch_table[DETECT_URICONTENT].name = "uricontent";
     sigmatch_table[DETECT_URICONTENT].desc = "legacy keyword to match on the request URI buffer";
-    sigmatch_table[DETECT_URICONTENT].url = DOC_URL DOC_VERSION "/rules/http-keywords.html#uricontent";
+    sigmatch_table[DETECT_URICONTENT].url = "/rules/http-keywords.html#uricontent";
     sigmatch_table[DETECT_URICONTENT].Match = NULL;
     sigmatch_table[DETECT_URICONTENT].Setup = DetectUricontentSetup;
     sigmatch_table[DETECT_URICONTENT].Free  = DetectUricontentFree;
@@ -85,7 +85,7 @@ void DetectUricontentRegister (void)
  *
  * \param cd pointer to DetectUricotentData
  */
-void DetectUricontentFree(void *ptr)
+void DetectUricontentFree(DetectEngineCtx *de_ctx, void *ptr)
 {
     SCEnter();
     DetectContentData *cd = (DetectContentData *)ptr;

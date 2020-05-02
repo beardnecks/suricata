@@ -44,7 +44,7 @@ static int DetectSeqSetup(DetectEngineCtx *, Signature *, const char *);
 static int DetectSeqMatch(DetectEngineThreadCtx *,
                           Packet *, const Signature *, const SigMatchCtx *);
 static void DetectSeqRegisterTests(void);
-static void DetectSeqFree(void *);
+static void DetectSeqFree(DetectEngineCtx *, void *);
 static int PrefilterSetupTcpSeq(DetectEngineCtx *de_ctx, SigGroupHead *sgh);
 static bool PrefilterTcpSeqIsPrefilterable(const Signature *s);
 
@@ -53,7 +53,7 @@ void DetectSeqRegister(void)
     sigmatch_table[DETECT_SEQ].name = "tcp.seq";
     sigmatch_table[DETECT_SEQ].alias = "seq";
     sigmatch_table[DETECT_SEQ].desc = "check for a specific TCP sequence number";
-    sigmatch_table[DETECT_SEQ].url = DOC_URL DOC_VERSION "/rules/header-keywords.html#seq";
+    sigmatch_table[DETECT_SEQ].url = "/rules/header-keywords.html#seq";
     sigmatch_table[DETECT_SEQ].Match = DetectSeqMatch;
     sigmatch_table[DETECT_SEQ].Setup = DetectSeqSetup;
     sigmatch_table[DETECT_SEQ].Free = DetectSeqFree;
@@ -128,7 +128,7 @@ error:
     if (data)
         SCFree(data);
     if (sm)
-        SigMatchFree(sm);
+        SigMatchFree(de_ctx, sm);
     return -1;
 
 }
@@ -139,7 +139,7 @@ error:
  *
  * \param data pointer to seq configuration data
  */
-static void DetectSeqFree(void *ptr)
+static void DetectSeqFree(DetectEngineCtx *de_ctx, void *ptr)
 {
     DetectSeqData *data = (DetectSeqData *)ptr;
     SCFree(data);
